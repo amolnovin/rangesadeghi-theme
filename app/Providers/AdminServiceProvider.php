@@ -151,7 +151,7 @@ final class AdminServiceProvider extends ServiceProvider
 
         /** @var Options $options */
         $options = $this->app->make('options');
-        $options->save($decoded);
+        $options->update($decoded);
 
         /** @var PatchManager $patcher */
         $patcher = $this->app->make('patcher');

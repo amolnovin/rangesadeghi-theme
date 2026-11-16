@@ -1,0 +1,115 @@
+name: Verify and publish patch 2.2.1
+
+on:
+  push:
+    branches: [arena/d45af644-rangesadeghi-theme]
+    paths: [.github/workflows/release-patch-2-2-1.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    if: github.ref == 'refs/heads/arena/d45af644-rangesadeghi-theme'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        hpos: ['yes', 'no']
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: wordpress_test
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -proot"
+          --health-interval=10s --health-timeout=5s --health-retries=12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Test WordPress, WooCommerce, and patch apply/rollback
+        env:
+          HPOS_ENABLED: ${{ matrix.hpos }}
+        run: |
+          set -euo pipefail
+          exec > >(tee "$RUNNER_TEMP/patch-integration.log") 2>&1
+          php -l app/Support/ProductPresenter.php
+          php -l app/Updater/PatchManager.php
+          php -l app/Providers/AdminServiceProvider.php
+          php tests/smoke.php
+          php -r 'if (!class_exists("ZipArchive")) {fwrite(STDERR, "ZipArchive missing\n"); exit(1);}'
+          curl -fsSL https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar -o "$RUNNER_TEMP/wp-cli.phar"
+          wp() { php "$RUNNER_TEMP/wp-cli.phar" "$@" --path="$RUNNER_TEMP/wp"; }
+          mkdir -p "$RUNNER_TEMP/wp"
+          wp core download --version=6.7.2
+          wp config create --dbname=wordpress_test --dbuser=root --dbpass=root --dbhost=127.0.0.1:3306
+          wp core install --url=http://example.test --title='Test' --admin_user=admin --admin_password=test-password --admin_email=admin@example.test --skip-email
+          ln -s "$GITHUB_WORKSPACE" "$RUNNER_TEMP/wp/wp-content/themes/rangesadeghi"
+          wp theme activate rangesadeghi
+          wp plugin install woocommerce --version=9.6.2 --activate
+          wp option update woocommerce_custom_orders_table_enabled "$HPOS_ENABLED"
+          wp eval-file "$GITHUB_WORKSPACE/tests/woocommerce-integration.php"
+          export RS_PATCH_TEST_DIR="$RUNNER_TEMP/patch-test" RS_PATCH_SOURCE_DIR="$GITHUB_WORKSPACE"
+          mkdir -p "$RS_PATCH_TEST_DIR/theme/app/Support" "$RS_PATCH_TEST_DIR/theme/app/Updater" "$RS_PATCH_TEST_DIR/theme/app/Providers"
+          for file in style.css app/Support/ProductPresenter.php app/Updater/PatchManager.php app/Providers/AdminServiceProvider.php; do
+            git show b302d9c639cda9f3555576ce7009916b73726a52:"$file" > "$RS_PATCH_TEST_DIR/theme/$file"
+          done
+          python3 tools/make-patch.py --version 2.2.1 --min-version 2.2.0 --files style.css app/Support/ProductPresenter.php app/Updater/PatchManager.php app/Providers/AdminServiceProvider.php --out-dir "$RS_PATCH_TEST_DIR"
+          wp eval-file "$GITHUB_WORKSPACE/tests/patch-integration.php"
+      - name: Report test failure
+        if: failure()
+        run: |
+          if test -f "$RUNNER_TEMP/patch-integration.log"; then
+            python3 - <<'PYERROR'
+          import os
+          p = os.path.join(os.environ['RUNNER_TEMP'], 'patch-integration.log')
+          text = open(p, errors='replace').read()[-4500:]
+          print('::error::' + text.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A'))
+          PYERROR
+          fi
+  publish:
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and verify patch bundles
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/patch"
+          python3 tools/make-patch.py --version 2.2.1 --min-version 2.2.0 --files style.css app/Support/ProductPresenter.php app/Updater/PatchManager.php app/Providers/AdminServiceProvider.php --notes 'رفع خطای محصول متغیر و به‌روزرسان پچ' --out-dir "$RUNNER_TEMP/patch"
+          python3 - <<'PY'
+          import os, json, zipfile, hashlib, base64
+          base = os.path.join(os.environ['RUNNER_TEMP'], 'patch', 'rangesadeghi-patch-2.2.1')
+          expected = {'style.css','app/Support/ProductPresenter.php','app/Updater/PatchManager.php','app/Providers/AdminServiceProvider.php'}
+          with zipfile.ZipFile(base+'.zip') as z:
+              manifest = json.loads(z.read('patch.json'))
+              assert manifest['min_version'] == '2.2.0' and manifest['target_version'] == '2.2.1'
+              assert set(manifest['files']) == expected and z.testzip() is None
+              bundle = json.load(open(base+'.json'))
+              for name, meta in manifest['files'].items():
+                  data = z.read('files/'+name)
+                  assert hashlib.sha256(data).hexdigest() == meta['sha256']
+                  assert data == open(name, 'rb').read() == base64.b64decode(bundle['files'][name]['content_base64'])
+          PY
+      - name: Publish patch release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat > "$RUNNER_TEMP/notes.md" <<'EOF'
+          ## پچ ۲.۲.۱ برای قالب رنگ صادقی نسخه ۲.۲.۰
+
+          رفع خطای PHP محصول متغیر در سبد خرید، سابقه سفارش و حساب کاربری، و اصلاح پاک‌سازی کش و ذخیره تنظیمات پنل. بسته‌های ZIP و JSON پچ هستند، نه فایل نصب کامل قالب.
+
+          **نصب از نسخه ۲.۲.۰:** پیش از هر تغییر از فایل‌های قالب و پایگاه داده نسخه پشتیبان بگیرید. به‌دلیل خطای موجود در به‌روزرسان ۲.۲.۰، ابتدا فایل `files/app/Updater/PatchManager.php` را از ZIP پچ استخراج و با FTP یا مدیر فایل به جای `wp-content/themes/rangesadeghi/app/Updater/PatchManager.php` قرار دهید. پس از پاک‌کردن کش PHP/OPcache در صورت نیاز، از پنل قالب ← بروزرسانی قالب با پچ، فایل ZIP یا JSON پچ را نصب کنید. از نصب ZIP به‌عنوان پوسته وردپرس استفاده نکنید.
+
+          روش جایگزین: با حفظ ساختار پوشه‌ها، هر چهار فایل داخل پوشه `files/` را به‌صورت دستی در ریشه قالب جایگزین کنید. در صورت شخصی‌سازی `style.css` تغییرات خود را پیش از جایگزینی حفظ کنید.
+
+          بسته‌ها checksum نوع SHA-256 دارند اما امضای دیجیتال ندارند. آزمون خودکار وردپرس ۶.۷.۲ و ووکامرس ۹.۶.۲، محصول متغیر، اعمال و بازگردانی هر دو فرمت پچ را در هر دو حالت HPOS بررسی می‌کند. پرداخت واقعی یا پیکربندی اختصاصی فروشگاه آزمایش نشده است؛ ابتدا در محیط آزمایشی بررسی کنید.
+          EOF
+          gh release create v2.2.1 "$RUNNER_TEMP/patch/rangesadeghi-patch-2.2.1.zip" "$RUNNER_TEMP/patch/rangesadeghi-patch-2.2.1.json" --target "$GITHUB_SHA" --title 'پچ قالب رنگ صادقی ۲.۲.۱' --notes-file "$RUNNER_TEMP/notes.md" --prerelease
