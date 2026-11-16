@@ -1,0 +1,66 @@
+name: WooCommerce integration tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        hpos: ['yes', 'no']
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: wordpress_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -proot"
+          --health-interval=10s --health-timeout=5s --health-retries=12
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP syntax and smoke tests
+        run: |
+          set -euo pipefail
+          find app bootstrap config woocommerce tests -name '*.php' -print0 | xargs -0 -n 1 php -l
+          find . -maxdepth 1 -name '*.php' -print0 | xargs -0 -n 1 php -l
+          php tests/smoke.php
+          node --check resources/js/theme.js
+          npm install --no-save --no-package-lock jsdom
+          node tests/checkout-ui.cjs
+      - name: Test with WordPress and WooCommerce
+        env:
+          HPOS_ENABLED: ${{ matrix.hpos }}
+        run: |
+          set -euo pipefail
+          exec > >(tee "$RUNNER_TEMP/rs-integration.log") 2>&1
+          curl -fsSL https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar -o "$RUNNER_TEMP/wp-cli.phar"
+          wp() { php "$RUNNER_TEMP/wp-cli.phar" "$@" --path="$RUNNER_TEMP/wp"; }
+          mkdir -p "$RUNNER_TEMP/wp"
+          wp core download --version=6.7.2
+          wp config create --dbname=wordpress_test --dbuser=root --dbpass=root --dbhost=127.0.0.1:3306
+          wp core install --url=http://example.test --title='Test' --admin_user=admin --admin_password=test-password --admin_email=admin@example.test --skip-email
+          ln -s "$GITHUB_WORKSPACE" "$RUNNER_TEMP/wp/wp-content/themes/rangesadeghi"
+          wp theme activate rangesadeghi
+          wp plugin install woocommerce --version=9.6.2 --activate
+          wp option update woocommerce_custom_orders_table_enabled "$HPOS_ENABLED"
+          wp eval-file "$GITHUB_WORKSPACE/tests/woocommerce-integration.php"
+      - name: Report integration errors
+        if: failure()
+        run: |
+          if test -f "$RUNNER_TEMP/rs-integration.log"; then
+            python3 - <<'PYERROR'
+          import os
+          p = os.path.join(os.environ['RUNNER_TEMP'], 'rs-integration.log')
+          text = open(p, errors='replace').read()[-4500:]
+          print('::error::' + text.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A'))
+          PYERROR
+          fi
