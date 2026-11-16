@@ -7,7 +7,10 @@ function rs_assert($condition, string $message): void {
 }
 rs_assert(function_exists('WC'), 'WooCommerce is not active');
 wc_load_cart();
-update_option('woocommerce_cod_settings', ['enabled' => 'yes', 'title' => 'Cash on delivery']);
+update_option('woocommerce_bacs_settings', ['enabled' => 'yes', 'title' => 'Bank transfer']);
+$gateways = WC()->payment_gateways()->payment_gateways();
+rs_assert(isset($gateways['bacs']), 'Bank transfer gateway is unavailable');
+$gateways['bacs']->enabled = 'yes';
 $product = new WC_Product_Simple();
 $product->set_name('Integration test product');
 $product->set_regular_price('100000');
@@ -41,7 +44,7 @@ $html = (string) ob_get_clean();
 foreach (['rs-native-checkout', 'data-rs-checkout-panel="address"', 'data-rs-checkout-panel="review"', 'billing_first_name', 'woocommerce-checkout-review-order', 'woocommerce-process-checkout-nonce', 'place_order'] as $part) {
     rs_assert(str_contains($html, $part), 'Missing checkout component: ' . $part);
 }
-rs_assert(str_contains($html, 'name="payment_method"'), 'WooCommerce payment gateways not rendered');
+rs_assert(str_contains($html, 'name="payment_method"'), 'WooCommerce payment gateways not rendered: ' . implode(',', array_keys(WC()->payment_gateways()->get_available_payment_gateways())) . '; review: ' . substr(wp_strip_all_tags($html), -500));
 WC()->cart->empty_cart();
 $product->delete(true);
 echo "WooCommerce cart and native checkout integration passed.\n";
