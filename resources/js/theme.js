@@ -1,0 +1,1081 @@
+/* ==========================================================================
+   رنگ صادقی | کنترلر مدرن فرانت‌اند وردپرس و ووکامرس (Vanilla ES2022 - بدون jQuery)
+   حفظ ۱۰۰٪ رفتارها و تعاملات نسخه HTML + اتصال کامل AJAX به ووکامرس
+   ========================================================================== */
+(function () {
+  'use strict';
+
+  const WP = window.RS_WP || {};
+  const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const $ = (sel, ctx = document) => ctx.querySelector(sel);
+  const $$ = (sel, ctx = document) => Array.from(ctx.querySelectorAll(sel));
+
+  const FA_DIGITS = '۰۱۲۳۴۵۶۷۸۹';
+  const toFa = val => String(val ?? '').replace(/\d/g, d => FA_DIGITS[d]);
+  const toEn = val => String(val ?? '')
+    .replace(/[۰-۹]/g, d => String(FA_DIGITS.indexOf(d)))
+    .replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
+  const formatPrice = num => toFa(Math.round(Number(num) || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '٫'));
+
+  let toastTimer = null;
+  function showToast(message, icon = 'i-check') {
+    const toast = $('#toast');
+    if (!toast || !message) return;
+    const useEl = toast.querySelector('use');
+    if (useEl) useEl.setAttribute('href', '#' + icon);
+    const span = toast.querySelector('span');
+    if (span) span.textContent = message;
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 3200);
+  }
+
+  async function wpAjax(action, data = {}, method = 'POST') {
+    if (method === 'GET') {
+      const url = new URL(WP.ajaxUrl, window.location.origin);
+      url.searchParams.set('action', action);
+      Object.entries(data).forEach(([k, v]) => url.searchParams.set(k, v));
+      const res = await fetch(url.toString(), { credentials: 'same-origin' });
+      return res.json();
+    }
+
+    const fd = new FormData();
+    fd.append('action', action);
+    fd.append('nonce', WP.nonce || '');
+    Object.entries(data).forEach(([k, v]) => {
+      if (Array.isArray(v)) {
+        v.forEach(item => fd.append(k + '[]', item));
+      } else if (v && typeof v === 'object') {
+        Object.entries(v).forEach(([sk, sv]) => fd.append(`${k}[${sk}]`, sv));
+      } else if (v !== undefined && v !== null) {
+        fd.append(k, v);
+      }
+    });
+
+    const res = await fetch(WP.ajaxUrl, { method: 'POST', credentials: 'same-origin', body: fd });
+    return res.json();
+  }
+
+  /* -------------------- مدیریت دراورها، مودال‌ها و اورلی -------------------- */
+  function closeLayers() {
+    $$('.side-drawer.open').forEach(d => { d.classList.remove('open'); d.setAttribute('aria-hidden', 'true'); });
+    $$('.modal.open').forEach(m => { m.classList.remove('open'); m.setAttribute('aria-hidden', 'true'); });
+    $('#shop-sidebar')?.classList.remove('open');
+    $('#page-overlay')?.classList.remove('active');
+    document.body.classList.remove('no-scroll');
+  }
+
+  function showOverlay() {
+    $('#page-overlay')?.classList.add('active');
+    document.body.classList.add('no-scroll');
+  }
+
+  function openDrawer(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    closeLayers();
+    el.classList.add('open');
+    el.setAttribute('aria-hidden', 'false');
+    showOverlay();
+    $('.drawer-close', el)?.focus();
+  }
+
+  function openModal(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    closeLayers();
+    el.classList.add('open');
+    el.setAttribute('aria-hidden', 'false');
+    showOverlay();
+    $('.modal-close', el)?.focus();
+  }
+
+  /* -------------------- هدر چسبان و بازگشت به بالا -------------------- */
+  function initStickyAndScroll() {
+    const mainHeader = $('#main-header');
+    const backBtn = $('#back-to-top');
+    const readBar = $('#read-progress span');
+
+    const onScroll = () => {
+      const y = window.scrollY || 0;
+      if (mainHeader && WP.stickyHeader !== false) {
+        mainHeader.classList.toggle('is-sticky', y > 110);
+        const h = mainHeader.classList.contains('is-sticky') ? Math.round(mainHeader.getBoundingClientRect().height) : 0;
+        document.documentElement.style.setProperty('--sticky-offset', h + 'px');
+      }
+      if (backBtn) backBtn.classList.toggle('show', y > 380);
+      if (readBar) {
+        const docH = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+        readBar.style.width = Math.min(100, Math.max(0, (y / docH) * 100)) + '%';
+      }
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    onScroll();
+
+    backBtn?.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+  }
+
+  /* -------------------- مگامنو و منوی موبایل -------------------- */
+  function initNavigation() {
+    const catBtn = $('#category-button');
+    const catNav = $('.category-nav');
+
+    catBtn?.addEventListener('click', e => {
+      e.stopPropagation();
+      if (!catNav) return;
+      const open = catNav.classList.toggle('open');
+      catBtn.setAttribute('aria-expanded', String(open));
+    });
+
+    $$('.mobile-menu-button').forEach(btn => btn.addEventListener('click', () => openDrawer('mobile-menu-drawer')));
+
+    $$('[data-drawer-tab]').forEach(tabBtn => {
+      tabBtn.addEventListener('click', () => {
+        const isCats = tabBtn.dataset.drawerTab === 'cats';
+        $$('[data-drawer-tab]').forEach(b => b.classList.toggle('active', b === tabBtn));
+        const navEl = $('#mobile-drawer-nav');
+        const catsEl = $('#mobile-drawer-categories');
+        if (navEl) navEl.hidden = isCats;
+        if (catsEl) catsEl.hidden = !isCats;
+      });
+    });
+
+    $$('.cart-button').forEach(btn => btn.addEventListener('click', e => {
+      e.preventDefault();
+      if (window.matchMedia('(min-width:1025px)').matches && WP.cartUrl) {
+        if (!document.body.classList.contains('page-cart')) {
+          window.location.href = WP.cartUrl;
+        }
+        return;
+      }
+      openDrawer('cart-drawer');
+    }));
+  }
+
+  /* -------------------- اسلایدر هیرو و شمارش معکوس و کاروسل‌ها -------------------- */
+  function initHeroAndCarousels() {
+    const hero = $('.hero-slider');
+    const slides = $$('.hero-slide');
+    if (hero && slides.length > 1) {
+      let idx = 0;
+      let timer = null;
+      let touchX = 0;
+      const delay = Math.max(2000, Number(WP.heroAutoplayMs || 5000));
+
+      const show = next => {
+        idx = (next + slides.length) % slides.length;
+        slides.forEach((s, i) => s.classList.toggle('active', i === idx));
+        $$('.hero-dots button').forEach((d, i) => d.classList.toggle('active', i === idx));
+      };
+      const start = () => { clearInterval(timer); timer = setInterval(() => show(idx + 1), delay); };
+
+      $('.hero-prev', hero)?.addEventListener('click', () => { show(idx - 1); start(); });
+      $('.hero-next', hero)?.addEventListener('click', () => { show(idx + 1); start(); });
+      $$('.hero-dots button', hero).forEach(d => d.addEventListener('click', () => { show(Number(d.dataset.slideTo || 0)); start(); }));
+      hero.addEventListener('mouseenter', () => clearInterval(timer));
+      hero.addEventListener('mouseleave', start);
+      hero.addEventListener('touchstart', e => { touchX = e.changedTouches[0].clientX; }, { passive: true });
+      hero.addEventListener('touchend', e => {
+        const dx = e.changedTouches[0].clientX - touchX;
+        if (Math.abs(dx) > 45) { show(idx + (dx > 0 ? 1 : -1)); start(); }
+      }, { passive: true });
+      start();
+    }
+
+    /* شمارش معکوس پیشنهاد شگفت‌انگیز */
+    const cdBox = $('#hx-countdown');
+    if (cdBox) {
+      const cells = { h: $('[data-cd="h"]', cdBox), m: $('[data-cd="m"]', cdBox), s: $('[data-cd="s"]', cdBox) };
+      const padFa = v => toFa(String(v).padStart(2, '0'));
+      const tick = () => {
+        const now = new Date();
+        const customEnd = cdBox.dataset.end || WP.dealEndDatetime;
+        let end = customEnd ? new Date(customEnd) : null;
+        if (!end || Number.isNaN(end.getTime()) || end <= now) {
+          end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0);
+        }
+        const left = Math.max(0, Math.floor((end - now) / 1000));
+        if (cells.h) cells.h.textContent = padFa(Math.floor(left / 3600));
+        if (cells.m) cells.m.textContent = padFa(Math.floor((left % 3600) / 60));
+        if (cells.s) cells.s.textContent = padFa(left % 60);
+      };
+      tick();
+      setInterval(tick, 1000);
+    }
+
+    /* دکمه‌های اسکرول کاروسل محصولات */
+    $$('[data-carousel]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const track = document.getElementById(btn.dataset.carousel);
+        if (!track) return;
+        const step = Math.max(260, Math.round(track.clientWidth * 0.72));
+        const dir = btn.dataset.dir === 'prev' ? 1 : -1; // در RTL اسکرول معکوس است
+        track.scrollBy({ left: dir * step, behavior: 'smooth' });
+      });
+    });
+  }
+
+  /* -------------------- جستجوی زنده AJAX در هدر -------------------- */
+  function initLiveSearch() {
+    const popular = Array.isArray(WP.popularSearches) && WP.popularSearches.length
+      ? WP.popularSearches
+      : ['مولتی سورفیس ریچ', 'تار عنکبوتی ساندورا', 'اکریلیک سوداکو', 'تکسچر کارن'];
+
+    $$('[data-search-form]').forEach(form => {
+      const box = form.closest('.search-box');
+      const input = $('input[type="search"]', form);
+      const results = $('.search-results', box);
+      if (!box || !input || !results) return;
+
+      let debounceId = null;
+
+      const renderPopular = () => {
+        results.innerHTML = `<div class="search-result-title">درخواست‌های محبوب</div><div class="popular-searches">${
+          popular.map(term => `<button type="button" data-search-term="${escapeHtml(term)}">${escapeHtml(term)}</button>`).join('')
+        }</div>`;
+        box.classList.add('open');
+      };
+
+      const runQuery = async () => {
+        const q = input.value.trim();
+        if (!q) { renderPopular(); return; }
+        try {
+          const res = await wpAjax('rs_live_search', { q }, 'GET');
+          const items = res?.data?.items || [];
+          if (items.length) {
+            results.innerHTML = `<div class="search-result-title">${res.data.count_fa} نتیجه برای «${escapeHtml(q)}»</div>` +
+              items.map(item => `<a class="search-result-item" href="${escapeHtml(item.url)}"><img src="${escapeHtml(item.image)}" alt=""><span>${escapeHtml(item.title)}</span><strong>${escapeHtml(item.price_formatted)}</strong></a>`).join('');
+          } else {
+            results.innerHTML = '<div class="search-empty">محصولی با این عبارت پیدا نشد.</div>';
+          }
+          box.classList.add('open');
+        } catch {
+          /* نادیده‌گرفتن خطای شبکه در جستجوی زنده */
+        }
+      };
+
+      input.addEventListener('focus', () => { if (!input.value.trim()) renderPopular(); else runQuery(); });
+      input.addEventListener('input', () => {
+        clearTimeout(debounceId);
+        debounceId = setTimeout(runQuery, 240);
+      });
+    });
+  }
+
+  /* -------------------- سبد خرید AJAX + همگام‌سازی زنده UI -------------------- */
+  function syncCartDom(payload) {
+    if (!payload) return;
+    $$('.cart-count').forEach(el => { el.textContent = payload.count_fa || '۰'; });
+    const drawerTotal = $('#cart-total');
+    if (drawerTotal) drawerTotal.textContent = payload.subtotal_fa || '۰ تومان';
+
+    const drawerItems = $('#cart-items');
+    if (drawerItems) {
+      if (Array.isArray(payload.items) && payload.items.length) {
+        drawerItems.innerHTML = payload.items.map(ci => `
+          <div class="cart-item" data-cart-key="${escapeHtml(ci.key)}">
+            <img src="${escapeHtml(ci.image)}" alt="${escapeHtml(ci.title)}">
+            <div>
+              <h3>${escapeHtml(ci.title)}</h3>
+              <div class="cart-item-price">${escapeHtml(ci.line_total_fa)} تومان</div>
+              <div class="cart-item-actions">
+                <button type="button" data-cart-action="plus" data-id="${escapeHtml(ci.key)}" aria-label="افزایش"><svg><use href="#i-plus"/></svg></button>
+                <span>${escapeHtml(ci.quantity_fa)}</span>
+                <button type="button" data-cart-action="minus" data-id="${escapeHtml(ci.key)}" aria-label="کاهش"><svg><use href="#i-minus"/></svg></button>
+              </div>
+            </div>
+            <button type="button" class="remove-cart-item" data-cart-action="remove" data-id="${escapeHtml(ci.key)}" aria-label="حذف محصول"><svg><use href="#i-trash"/></svg></button>
+          </div>`).join('');
+      } else {
+        drawerItems.innerHTML = `<div class="cart-empty"><svg><use href="#i-bag"/></svg><p>سبد خرید شما خالی است.</p><a class="quick-add" href="${escapeHtml(WP.shopUrl || '/')}">مشاهده محصولات</a></div>`;
+      }
+    }
+
+    /* اگر در صفحه سبد خرید هستیم، خطوط و خلاصه سفارش را هم زنده به‌روز کن */
+    const cartLines = $('#cart-page-items');
+    if (cartLines) {
+      const pageCount = $('#cart-page-count');
+      if (pageCount) pageCount.textContent = payload.count ? `(${payload.count_fa} کالا)` : '';
+      const setTxt = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+      setTxt('summary-count', payload.count_fa || '۰');
+      setTxt('summary-subtotal', payload.original_fa || '۰ تومان');
+      setTxt('summary-discount', payload.discount_fa || '۰ تومان');
+      setTxt('summary-shipping', payload.shipping_fa || 'پس از انتخاب آدرس');
+      setTxt('summary-total', payload.total_fa || '۰ تومان');
+      setTxt('cart-mobile-total', payload.total_fa || '۰ تومان');
+
+      const freeText = $('#free-ship-text');
+      const freeBar = $('#free-ship-progress');
+      if (freeText) {
+        freeText.textContent = !payload.count
+          ? 'با افزودن کالا، هزینه ارسال محاسبه می‌شود.'
+          : payload.free_remaining > 0
+            ? `${payload.free_remaining_fa} تومان تا ارسال رایگان باقی مانده است.`
+            : 'ارسال این سفارش رایگان است';
+      }
+      if (freeBar) freeBar.style.width = (payload.count ? payload.free_percent : 0) + '%';
+
+      if (!payload.items || !payload.items.length) {
+        cartLines.innerHTML = `<div class="cart-empty-lg"><svg><use href="#i-bag"/></svg><h3>سبد خرید شما خالی است</h3><p>هنوز محصولی به سبد خرید اضافه نکرده‌اید.</p><a class="btn btn-primary" href="${escapeHtml(WP.shopUrl || '/')}"><svg><use href="#i-grid"/></svg>مشاهده محصولات</a></div>`;
+      } else {
+        cartLines.innerHTML = payload.items.map(line => `
+          <article class="cart-line" data-line="${escapeHtml(line.key)}">
+            <a class="cart-line-img" href="${escapeHtml(line.url)}"><img src="${escapeHtml(line.image)}" alt="${escapeHtml(line.title)}" loading="lazy"></a>
+            <div class="cart-line-body">
+              <a class="cart-line-title" href="${escapeHtml(line.url)}">${escapeHtml(line.title)}</a>
+              <div class="cart-line-meta"><span>${escapeHtml(line.cat)}</span><span aria-hidden="true">•</span><span>کد ${escapeHtml(line.sku_fa)}</span></div>
+              <div class="cart-line-flags">
+                <span class="mini-flag">${line.in_stock ? 'موجود در انبار' : 'ناموجود'}</span>
+                ${line.discount > 0 ? `<span class="mini-flag is-sale">${escapeHtml(line.discount_fa)}٪ تخفیف</span>` : ''}
+                <span class="mini-flag is-muted">ارسال از انبار آمل</span>
+              </div>
+              <div class="cart-line-actions">
+                <div class="qty-stepper qty-sm">
+                  <button type="button" data-cart-action="plus" data-id="${escapeHtml(line.key)}" aria-label="افزایش"><svg><use href="#i-plus"/></svg></button>
+                  <input value="${escapeHtml(line.quantity_fa)}" readonly aria-label="تعداد">
+                  <button type="button" data-cart-action="minus" data-id="${escapeHtml(line.key)}" aria-label="کاهش"><svg><use href="#i-minus"/></svg></button>
+                </div>
+                <button class="cart-line-btn is-danger" type="button" data-cart-action="remove" data-id="${escapeHtml(line.key)}"><svg><use href="#i-trash"/></svg>حذف</button>
+                <button class="cart-line-btn" type="button" data-wish="${escapeHtml(line.parent_id)}"><svg><use href="#i-heart"/></svg>ذخیره در علاقه‌مندی</button>
+              </div>
+            </div>
+            <div class="cart-line-price">
+              <span class="old">${escapeHtml(line.line_old_fa || '')}</span>
+              <b>${escapeHtml(line.line_total_fa)}</b>
+              <small>تومان</small>
+            </div>
+          </article>`).join('');
+      }
+    }
+  }
+
+  async function addProductToCart(productId, quantity = 1, variationId = 0, variation = {}) {
+    const res = await wpAjax('rs_cart_add', {
+      product_id: productId,
+      quantity,
+      variation_id: variationId,
+      variation
+    });
+
+    if (res.success) {
+      syncCartDom(res.data);
+      showToast(res.data.message || 'به سبد خرید اضافه شد');
+      return;
+    }
+
+    showToast(res.data?.message || 'خطا در افزودن به سبد خرید', 'i-info');
+  }
+
+  async function mutateCart(cartKey, cartAction) {
+    const res = await wpAjax('rs_cart_update', { cart_key: cartKey, cart_action: cartAction });
+    if (res.success) {
+      syncCartDom(res.data);
+      if (res.data.message) showToast(res.data.message);
+    }
+  }
+
+  /* -------------------- علاقه‌مندی‌ها (کوکی + متای کاربر + مودال سریع) -------------------- */
+  const wishSet = new Set((WP.wishlist || []).map(String));
+
+  function persistWishlistCookie() {
+    const arr = Array.from(wishSet);
+    document.cookie = 'rs_wishlist=' + encodeURIComponent(JSON.stringify(arr)) + '; path=/; max-age=' + (60 * 60 * 24 * 90) + '; SameSite=Lax';
+  }
+
+  function refreshWishlistButtons() {
+    const cnt = $('#wishlist-count');
+    if (cnt) cnt.textContent = toFa(wishSet.size);
+    $$('[data-wish]').forEach(btn => {
+      if (btn.classList.contains('remove-wish')) return;
+      const active = wishSet.has(String(btn.dataset.wish));
+      btn.classList.toggle('active', active);
+      btn.setAttribute('aria-pressed', String(active));
+    });
+  }
+
+  async function toggleWishlist(id) {
+    const sid = String(id);
+    if (wishSet.has(sid)) wishSet.delete(sid);
+    else wishSet.add(sid);
+    refreshWishlistButtons();
+
+    try {
+      const res = await wpAjax('rs_wishlist_toggle', { product_id: sid });
+      if (res.success && Array.isArray(res.data.wishlist)) {
+        wishSet.clear();
+        res.data.wishlist.forEach(x => wishSet.add(String(x)));
+        persistWishlistCookie();
+        refreshWishlistButtons();
+        showToast(res.data.message, 'i-heart');
+      }
+    } catch {
+      persistWishlistCookie();
+      showToast(wishSet.has(sid) ? 'به علاقه‌مندی اضافه شد' : 'از علاقه‌مندی حذف شد', 'i-heart');
+    }
+
+    if ($('#quick-modal.open .wishlist-view')) openWishlistModal();
+  }
+
+  async function openWishlistModal() {
+    const content = $('#quick-modal-content');
+    if (!content) return;
+    content.innerHTML = '<div class="wishlist-view"><h2>لیست علاقه‌مندی‌ها</h2><p style="padding:16px 0">در حال بارگذاری…</p></div>';
+    openModal('quick-modal');
+
+    const res = await wpAjax('rs_wishlist_items', { ids: Array.from(wishSet) });
+    const items = res?.data?.items || [];
+    content.innerHTML = `<div class="wishlist-view"><h2>لیست علاقه‌مندی‌ها</h2>${
+      items.length
+        ? `<div class="wishlist-list">${items.map(p => `
+            <div class="wishlist-row">
+              <img src="${escapeHtml(p.image)}" alt="${escapeHtml(p.title)}">
+              <a class="wishlist-name" href="${escapeHtml(p.url)}">${escapeHtml(p.title)}</a>
+              <strong>${escapeHtml(p.price)}</strong>
+              <button class="quick-add" type="button" data-add="${escapeHtml(p.id)}">افزودن به سبد</button>
+              <button class="remove-wish" type="button" data-wish="${escapeHtml(p.id)}" aria-label="حذف"><svg><use href="#i-trash"/></svg></button>
+            </div>`).join('')}</div>`
+        : `<div class="cart-empty"><svg><use href="#i-heart"/></svg><p>هنوز محصولی به علاقه‌مندی‌ها اضافه نکرده‌اید.</p><a class="quick-add" href="${escapeHtml(WP.shopUrl || '/')}">مشاهده محصولات</a></div>`
+    }</div>`;
+  }
+
+  /* -------------------- فیلتر زنده AJAX فروشگاه -------------------- */
+  function initShopPage() {
+    const grid = $('#shop-grid');
+    const sidebar = $('#shop-sidebar');
+    if (!grid || !sidebar) return;
+
+    const collectParams = (page = 1) => {
+      const params = { paged: page };
+      const cats = $$('input[name="cat"]:checked', sidebar).map(i => i.value);
+      const brands = $$('input[name="brand"]:checked', sidebar).map(i => i.value);
+      if (cats.length) params.cat = cats.join(',');
+      if (brands.length) params.brand = brands.join(',');
+
+      const minP = toEn($('#filter-min')?.value || '').replace(/\D+/g, '');
+      const maxP = toEn($('#filter-max')?.value || '').replace(/\D+/g, '');
+      if (minP) params.min_price = minP;
+      if (maxP) params.max_price = maxP;
+      if ($('#filter-sale')?.checked) params.sale = '1';
+      if ($('#filter-stock')?.checked) params.in_stock = '1';
+
+      const sort = $('#sort-select')?.value;
+      if (sort && sort !== 'default') params.rs_sort = sort;
+
+      const activeView = $('.view-toggles button.active')?.dataset.view || 'grid';
+      params.view = activeView;
+      return params;
+    };
+
+    const runFilter = async (page = 1) => {
+      const params = collectParams(page);
+      const nextUrl = new URL(window.location.href);
+      ['cat', 'brand', 'min_price', 'max_price', 'sale', 'in_stock', 'rs_sort', 'view', 'paged'].forEach(k => nextUrl.searchParams.delete(k));
+      Object.entries(params).forEach(([k, v]) => {
+        if (k === 'paged' && Number(v) <= 1) return;
+        if (k === 'view' && v === 'grid') return;
+        nextUrl.searchParams.set(k, v);
+      });
+
+      if (WP.ajaxFiltering === false) {
+        window.location.href = nextUrl.toString();
+        return;
+      }
+
+      window.history.replaceState({}, '', nextUrl.toString());
+      grid.style.opacity = '0.55';
+      try {
+        const res = await wpAjax('rs_shop_filter', params, 'GET');
+        if (res.success) {
+          grid.classList.toggle('is-list', params.view === 'list');
+          grid.innerHTML = res.data.cards_html;
+          const cnt = $('#result-count');
+          if (cnt) cnt.innerHTML = `نمایش <b>${res.data.showing_fa}</b> از <b>${res.data.total_fa}</b> محصول`;
+          refreshWishlistButtons();
+        }
+      } finally {
+        grid.style.opacity = '1';
+      }
+    };
+
+    $$('input[type="checkbox"]', sidebar).forEach(cb => cb.addEventListener('change', () => runFilter(1)));
+    let priceTimer = null;
+    ['#filter-min', '#filter-max'].forEach(sel => {
+      $(sel)?.addEventListener('input', () => {
+        clearTimeout(priceTimer);
+        priceTimer = setTimeout(() => runFilter(1), 450);
+      });
+    });
+    $('#sort-select')?.addEventListener('change', () => runFilter(1));
+
+    $$('.view-toggles [data-view]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        $$('.view-toggles [data-view]').forEach(b => b.classList.toggle('active', b === btn));
+        runFilter(1);
+      });
+    });
+
+    $('[data-open-filters]')?.addEventListener('click', () => {
+      sidebar.classList.add('open');
+      showOverlay();
+    });
+
+    document.addEventListener('click', e => {
+      const clearBtn = e.target.closest('[data-clear]');
+      if (!clearBtn) return;
+      const spec = clearBtn.dataset.clear;
+      if (spec === 'all') {
+        $$('input[type="checkbox"]', sidebar).forEach(cb => { cb.checked = false; });
+        if ($('#filter-min')) $('#filter-min').value = '';
+        if ($('#filter-max')) $('#filter-max').value = '';
+      } else if (spec.startsWith('cat:')) {
+        const v = spec.slice(4);
+        $$('input[name="cat"]', sidebar).filter(cb => cb.value === v).forEach(cb => { cb.checked = false; });
+      } else if (spec.startsWith('brand:')) {
+        const v = spec.slice(6);
+        $$('input[name="brand"]', sidebar).filter(cb => cb.value === v).forEach(cb => { cb.checked = false; });
+      } else if (spec === 'sale' && $('#filter-sale')) {
+        $('#filter-sale').checked = false;
+      } else if (spec === 'stock' && $('#filter-stock')) {
+        $('#filter-stock').checked = false;
+      }
+      clearBtn.remove();
+      runFilter(1);
+    });
+  }
+
+  /* -------------------- صفحه تک‌محصول -------------------- */
+  function initSingleProduct() {
+    const wrap = $('[data-single-product]');
+    if (!wrap) return;
+
+    const mainImg = $('#gallery-main img', wrap);
+    $$('#gallery-thumbs [data-thumb]', wrap).forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (mainImg) mainImg.src = btn.dataset.thumb;
+        $$('#gallery-thumbs [data-thumb]', wrap).forEach(b => b.classList.toggle('active', b === btn));
+      });
+    });
+
+    $('.gallery-zoom', wrap)?.addEventListener('click', () => {
+      const content = $('#quick-modal-content');
+      if (!content || !mainImg) return;
+      content.innerHTML = `<img src="${escapeHtml(mainImg.src)}" alt="${escapeHtml(mainImg.alt)}" style="width:100%;max-height:80vh;object-fit:contain;border-radius:12px">`;
+      openModal('quick-modal');
+    });
+
+    /* تعداد */
+    const qtyInput = $('#qty-input', wrap);
+    let qty = 1;
+    const setQty = next => {
+      qty = Math.max(1, Math.min(99, next));
+      if (qtyInput) {
+        qtyInput.value = toFa(qty);
+        qtyInput.dataset.qty = String(qty);
+      }
+    };
+    $('#qty-minus', wrap)?.addEventListener('click', () => setQty(qty - 1));
+    $('#qty-plus', wrap)?.addEventListener('click', () => setQty(qty + 1));
+
+    /* متغیرهای ووکامرس */
+    let variations = [];
+    try { variations = JSON.parse(wrap.dataset.variations || '[]'); } catch { variations = []; }
+    let selectedVarId = variations[0]?.variation_id || 0;
+
+    $$('[data-wc-attribute] [data-attr-val]', wrap).forEach(btn => {
+      btn.addEventListener('click', () => {
+        const group = btn.closest('[data-wc-attribute]');
+        $$('[data-attr-val]', group).forEach(b => b.classList.toggle('active', b === btn));
+        const chosen = {};
+        $$('[data-wc-attribute]', wrap).forEach(g => {
+          const active = $('.active', g);
+          if (active) chosen[g.dataset.wcAttribute] = active.dataset.attrVal;
+        });
+        const match = variations.find(v => Object.entries(chosen).every(([k, val]) => !v.attributes[k] || v.attributes[k] === val));
+        if (match) {
+          selectedVarId = match.variation_id;
+          const pEl = $('#product-price');
+          if (pEl) pEl.textContent = match.price_fa;
+          const stEl = $('#sticky-price');
+          if (stEl) stEl.textContent = match.price_fa + ' تومان';
+          if (match.image && mainImg) mainImg.src = match.image;
+        }
+      });
+    });
+
+    $$('[data-single-add]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const chosen = {};
+        $$('[data-wc-attribute]', wrap).forEach(g => {
+          const active = $('.active', g);
+          if (active) chosen[g.dataset.wcAttribute] = active.dataset.attrVal;
+        });
+        addProductToCart(btn.dataset.singleAdd, qty, selectedVarId, chosen);
+      });
+    });
+
+    /* تب‌های توضیحات / مشخصات / دیدگاه‌ها / ارسال */
+    $$('.product-tabs .tab-nav [data-tab]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const target = btn.dataset.tab;
+        $$('.product-tabs .tab-nav [data-tab]').forEach(b => b.classList.toggle('active', b === btn));
+        $$('.product-tabs .tab-panel').forEach(p => p.classList.toggle('active', p.id === target));
+      });
+    });
+  }
+
+  /* -------------------- تسویه حساب ۴ مرحله‌ای متصل به ووکامرس -------------------- */
+  function initCheckoutWizard() {
+    const form = $('form.woocommerce-checkout#co-layout');
+    if (!form) return;
+
+    const stepsOrder = ['address', 'shipping', 'payment'];
+    let stepIdx = 0;
+
+    const syncHiddenBillingFromSelected = () => {
+      const activeAddr = $('.co-address.is-selected', form);
+      if (activeAddr) {
+        $('#wc_billing_first_name').value = activeAddr.dataset.addrName || '';
+        $('#wc_billing_phone').value = toEn(activeAddr.dataset.addrPhone || '');
+        $('#wc_billing_state').value = activeAddr.dataset.addrProvince || 'مازندران';
+        $('#wc_billing_city').value = activeAddr.dataset.addrCity || 'آمل';
+        $('#wc_billing_postcode').value = toEn(activeAddr.dataset.addrPostal || '');
+        $('#wc_billing_address_1').value = activeAddr.dataset.addrFull || '';
+        const shipTo = $('#co-ship-to');
+        if (shipTo) shipTo.textContent = activeAddr.dataset.addrCity || 'آمل';
+      } else {
+        /* اگر فرم دستی باز بود */
+        const manualAddr = $('#na-address')?.value.trim() || '';
+        if (manualAddr) {
+          $('#wc_billing_first_name').value = $('#na-name')?.value.trim() || 'مشتری';
+          $('#wc_billing_phone').value = toEn($('#na-phone')?.value.trim() || '');
+          $('#wc_billing_state').value = $('#na-province')?.value || 'مازندران';
+          $('#wc_billing_city').value = $('#na-city')?.value.trim() || 'آمل';
+          $('#wc_billing_postcode').value = toEn($('#na-postal')?.value.trim() || '');
+          $('#wc_billing_address_1').value = manualAddr;
+        }
+      }
+    };
+
+    const goStep = nextIdx => {
+      if (nextIdx > 0) {
+        syncHiddenBillingFromSelected();
+        if (!$('#wc_billing_address_1').value.trim() || !$('#wc_billing_phone').value.trim()) {
+          const err = $('#co-address-error');
+          if (err) err.hidden = false;
+          showToast('لطفاً نشانی کامل و شماره موبایل تحویل‌گیرنده را وارد یا انتخاب کنید.', 'i-info');
+          return;
+        }
+        const err = $('#co-address-error');
+        if (err) err.hidden = true;
+      }
+
+      stepIdx = Math.max(0, Math.min(stepsOrder.length - 1, nextIdx));
+      const key = stepsOrder[stepIdx];
+
+      $$('.co-step', form).forEach(sec => {
+        const active = sec.dataset.step === key;
+        sec.classList.toggle('is-active', active);
+        sec.hidden = !active;
+      });
+
+      const bar = $('#co-steps');
+      if (bar) {
+        bar.style.setProperty('--p', String([0.25, 0.5, 0.78][stepIdx] || 0.25));
+        $$('#co-steps li').forEach((li, i) => {
+          li.classList.toggle('is-done', i <= stepIdx);
+          li.classList.toggle('is-active', i === stepIdx + 1);
+        });
+      }
+
+      const label = stepIdx === 2 ? 'ثبت سفارش و پرداخت امن' : 'ادامه';
+      ['#co-next span', '#co-side-next', '#co-mobile-next'].forEach(sel => {
+        const el = $(sel);
+        if (el) el.textContent = label;
+      });
+      const backLabel = $('#co-back span');
+      if (backLabel) backLabel.textContent = stepIdx === 0 ? 'بازگشت به سبد خرید' : 'مرحله قبل';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    const advanceOrSubmit = async () => {
+      if (stepIdx < 2) {
+        goStep(stepIdx + 1);
+        return;
+      }
+
+      if ($('#co-terms') && !$('#co-terms').checked) {
+        const te = $('#co-terms-error');
+        if (te) te.hidden = false;
+        showToast('پذیرش قوانین فروشگاه الزامی است.', 'i-info');
+        return;
+      }
+
+      syncHiddenBillingFromSelected();
+      const proc = $('#co-processing');
+      if (proc) proc.hidden = false;
+
+      try {
+        const endpoint = WP.wcAjaxUrl ? WP.wcAjaxUrl.replace('%%endpoint%%', 'checkout') : (form.action + '?wc-ajax=checkout');
+        const fd = new FormData(form);
+        const res = await fetch(endpoint, { method: 'POST', credentials: 'same-origin', body: fd });
+        const json = await res.json();
+
+        if (json.result === 'success' && json.redirect) {
+          window.location.href = json.redirect;
+          return;
+        }
+
+        if (proc) proc.hidden = true;
+        const tmp = document.createElement('div');
+        tmp.innerHTML = json.messages || '';
+        showToast(tmp.textContent.trim() || 'لطفاً فیلدهای سفارش را بررسی کنید.', 'i-info');
+      } catch {
+        form.submit();
+      }
+    };
+
+    ['#co-next', '#co-side-next', '#co-mobile-next'].forEach(sel => $(sel)?.addEventListener('click', advanceOrSubmit));
+    $('#co-back')?.addEventListener('click', () => {
+      if (stepIdx === 0) window.location.href = WP.cartUrl || '/';
+      else goStep(stepIdx - 1);
+    });
+    $$('[data-goto]').forEach(btn => btn.addEventListener('click', () => {
+      const idx = stepsOrder.indexOf(btn.dataset.goto);
+      if (idx >= 0) goStep(idx);
+    }));
+
+    /* انتخاب کارت آدرس */
+    form.addEventListener('change', e => {
+      if (e.target.name === 'rs_selected_address') {
+        $$('.co-address', form).forEach(lbl => lbl.classList.toggle('is-selected', lbl.contains(e.target)));
+        syncHiddenBillingFromSelected();
+      }
+      if (e.target.name === 'rs_ship_method' || e.target.name === 'payment_method') {
+        const wrap = e.target.closest('.co-options');
+        if (wrap) $$('.co-option', wrap).forEach(o => o.classList.toggle('is-selected', o.contains(e.target)));
+      }
+    });
+
+    /* باز/بستن فرم آدرس جدید و ذخیره AJAX */
+    $('#co-add-address')?.addEventListener('click', () => {
+      const f = $('#co-address-form');
+      if (f) f.hidden = !f.hidden;
+    });
+    $('#co-cancel-address')?.addEventListener('click', () => {
+      const f = $('#co-address-form');
+      if (f) f.hidden = true;
+    });
+    $('#co-save-address-btn')?.addEventListener('click', async () => {
+      const data = {
+        title: $('#na-title')?.value.trim() || 'منزل',
+        name: $('#na-name')?.value.trim() || '',
+        phone: $('#na-phone')?.value.trim() || '',
+        province: $('#na-province')?.value || 'مازندران',
+        city: $('#na-city')?.value.trim() || 'آمل',
+        postal: $('#na-postal')?.value.trim() || '',
+        address: $('#na-address')?.value.trim() || ''
+      };
+      if (!data.address || !data.phone) {
+        showToast('نشانی کامل و شماره موبایل الزامی است.', 'i-info');
+        return;
+      }
+      if (WP.isLoggedIn) {
+        const res = await wpAjax('rs_address_save', data);
+        if (!res.success) {
+          showToast(res.data?.message || 'خطا در ثبت آدرس', 'i-info');
+          return;
+        }
+      }
+      const list = $('#co-address-list');
+      if (list) {
+        $$('.co-address', list).forEach(a => a.classList.remove('is-selected'));
+        const lbl = document.createElement('label');
+        lbl.className = 'co-address is-selected';
+        Object.assign(lbl.dataset, {
+          addrName: data.name,
+          addrPhone: data.phone,
+          addrProvince: data.province,
+          addrCity: data.city,
+          addrPostal: data.postal,
+          addrFull: data.address
+        });
+        lbl.innerHTML = `<input type="radio" name="rs_selected_address" checked><span class="co-radio"></span><span class="co-address-body"><b>${escapeHtml(data.title)}</b><span class="co-address-text">${escapeHtml(data.province)}، ${escapeHtml(data.city)}، ${escapeHtml(data.address)}</span></span>`;
+        list.prepend(lbl);
+      }
+      syncHiddenBillingFromSelected();
+      $('#co-address-form').hidden = true;
+      showToast('آدرس ثبت و انتخاب شد.');
+    });
+
+    /* گیرنده سفارشی */
+    $('#co-receiver-self')?.addEventListener('change', function () {
+      const box = $('#co-receiver');
+      if (box) box.hidden = this.checked;
+    });
+
+    /* روز و ساعت تحویل */
+    $$('#co-days .co-day').forEach(btn => btn.addEventListener('click', () => {
+      $$('#co-days .co-day').forEach(b => { b.classList.toggle('is-selected', b === btn); b.setAttribute('aria-checked', String(b === btn)); });
+      $('#wc_rs_delivery_day').value = btn.dataset.dayVal || '';
+    }));
+    $$('#co-slots .co-slot').forEach(btn => btn.addEventListener('click', () => {
+      $$('#co-slots .co-slot').forEach(b => { b.classList.toggle('is-selected', b === btn); b.setAttribute('aria-checked', String(b === btn)); });
+      $('#wc_rs_delivery_slot').value = btn.dataset.slotVal || '';
+    }));
+
+    /* بسته‌بندی هدیه */
+    $('#co-gift')?.addEventListener('change', async function () {
+      const res = await wpAjax('rs_checkout_gift', { enabled: this.checked ? '1' : '' });
+      if (res.success) {
+        const tot = $('#co-sum-total');
+        if (tot) tot.textContent = res.data.total_fa;
+        const mob = $('#co-mobile-total');
+        if (mob) mob.textContent = res.data.total_fa;
+      }
+    });
+
+    /* کد تخفیف در تسویه حساب */
+    $('#co-coupon-btn')?.addEventListener('click', async () => {
+      const code = $('#co-coupon-input')?.value.trim() || '';
+      const res = await wpAjax('rs_cart_coupon', { coupon: code });
+      const note = $('#co-coupon-note');
+      if (note) note.textContent = res.data?.message || '';
+      if (res.success) {
+        $('#co-sum-discount').textContent = res.data.discount_fa;
+        $('#co-sum-total').textContent = res.data.total_fa;
+        showToast(res.data.message);
+      } else {
+        showToast(res.data?.message || 'کد نامعتبر است', 'i-info');
+      }
+    });
+  }
+
+  /* -------------------- پنل کاربری، سفارش‌ها و فرم‌های عمومی -------------------- */
+  function initAccountAndForms() {
+    /* تب‌های حساب کاربری */
+    const switchAccountTab = key => {
+      if (!key) return;
+      $$('.account-nav [data-account-tab]').forEach(b => b.classList.toggle('active', b.dataset.accountTab === key));
+      $$('.account-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + key));
+    };
+
+    $$('[data-account-tab]').forEach(btn => btn.addEventListener('click', () => {
+      switchAccountTab(btn.dataset.accountTab);
+    }));
+    if (window.location.hash && $('#panel-' + window.location.hash.slice(1))) {
+      switchAccountTab(window.location.hash.slice(1));
+    }
+
+    /* ذخیره پروفایل حساب */
+    $('#account-profile-form')?.addEventListener('submit', async e => {
+      e.preventDefault();
+      const fd = new FormData(e.currentTarget);
+      const data = Object.fromEntries(fd.entries());
+      const res = await wpAjax('rs_profile_save', data);
+      showToast(res.data?.message || 'ذخیره شد', res.success ? 'i-check' : 'i-info');
+    });
+
+    /* افزودن/حذف آدرس در پنل کاربری */
+    $('#account-new-address-form')?.addEventListener('submit', async e => {
+      e.preventDefault();
+      const fd = new FormData(e.currentTarget);
+      const res = await wpAjax('rs_address_save', Object.fromEntries(fd.entries()));
+      showToast(res.data?.message || '', res.success ? 'i-check' : 'i-info');
+      if (res.success) setTimeout(() => window.location.reload(), 700);
+    });
+
+    $$('[data-delete-address]').forEach(btn => btn.addEventListener('click', async () => {
+      const id = btn.dataset.deleteAddress;
+      const res = await wpAjax('rs_address_delete', { address_id: id });
+      if (res.success) {
+        btn.closest('[data-address-card]')?.remove();
+        showToast(res.data.message);
+      }
+    }));
+
+    /* کوپن و پاک کردن کل سبد در صفحه سبد خرید */
+    $('#coupon-form')?.addEventListener('submit', async e => {
+      e.preventDefault();
+      const code = $('#coupon-input')?.value.trim() || '';
+      const res = await wpAjax('rs_cart_coupon', { coupon: code });
+      const note = $('#coupon-note');
+      if (note && res.data?.message) note.textContent = res.data.message;
+      if (res.success) {
+        syncCartDom(res.data);
+        showToast(res.data.message);
+      } else {
+        showToast(res.data?.message || 'کد تخفیف معتبر نیست', 'i-info');
+      }
+    });
+
+    $('#cart-page-clear')?.addEventListener('click', () => mutateCart('', 'clear'));
+
+    /* خبرنامه */
+    $$('[data-newsletter-form]').forEach(form => form.addEventListener('submit', async e => {
+      e.preventDefault();
+      const input = $('input[name="contact"]', form) || $('input', form);
+      const res = await wpAjax('rs_newsletter_subscribe', { contact: input?.value.trim() || '' });
+      showToast(res.data?.message || '', res.success ? 'i-check' : 'i-info');
+      if (res.success) form.reset();
+    }));
+
+    /* فرم تماس با ما */
+    $('#contact-form')?.addEventListener('submit', async e => {
+      e.preventDefault();
+      const form = e.currentTarget;
+      const fd = new FormData(form);
+      const res = await wpAjax('rs_contact_submit', Object.fromEntries(fd.entries()));
+      showToast(res.data?.message || '', res.success ? 'i-check' : 'i-info');
+      if (res.success) form.reset();
+    });
+
+    /* مودال ورود سریع */
+    $('#login-form')?.addEventListener('submit', async e => {
+      e.preventDefault();
+      const identity = $('#mobile-number')?.value.trim() || '';
+      const password = $('#modal-password')?.value || '';
+      const res = await wpAjax('rs_modal_auth', { identity, password });
+      if (!res.success) {
+        showToast(res.data?.message || 'خطا در ورود', 'i-info');
+        return;
+      }
+      if (res.data.redirect) {
+        showToast(res.data.message);
+        window.location.href = res.data.redirect;
+        return;
+      }
+      if (res.data.need_password) {
+        const pwWrap = $('#login-modal-pass-wrap');
+        if (pwWrap && pwWrap.hidden) {
+          pwWrap.hidden = false;
+          $('#modal-password')?.focus();
+          showToast(res.data.message, 'i-info');
+        } else if (res.data.account_url) {
+          window.location.href = res.data.account_url;
+        }
+      }
+    });
+  }
+
+  /* -------------------- رویدادهای کلیک عمومی -------------------- */
+  function initDelegatedEvents() {
+    document.addEventListener('click', async e => {
+      const addBtn = e.target.closest('[data-add]');
+      if (addBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        addProductToCart(addBtn.dataset.add, 1);
+        return;
+      }
+
+      const wishBtn = e.target.closest('[data-wish]');
+      if (wishBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleWishlist(wishBtn.dataset.wish);
+        return;
+      }
+
+      const cartAct = e.target.closest('[data-cart-action]');
+      if (cartAct) {
+        e.preventDefault();
+        mutateCart(cartAct.dataset.id, cartAct.dataset.cartAction);
+        return;
+      }
+
+      const searchChip = e.target.closest('[data-search-term]');
+      if (searchChip) {
+        const box = searchChip.closest('.search-box');
+        const inp = $('input[type="search"]', box);
+        if (inp) {
+          inp.value = searchChip.dataset.searchTerm;
+          inp.dispatchEvent(new Event('input'));
+          inp.focus();
+        }
+        return;
+      }
+
+      const copyBtn = e.target.closest('[data-copy]');
+      if (copyBtn) {
+        try {
+          await navigator.clipboard.writeText(copyBtn.dataset.copy);
+          showToast('در حافظه کپی شد');
+        } catch {
+          showToast('امکان کپی خودکار وجود ندارد', 'i-info');
+        }
+        return;
+      }
+
+      if (e.target.closest('[data-print]')) {
+        window.print();
+        return;
+      }
+
+      const cancelOrd = e.target.closest('[data-cancel-order]');
+      if (cancelOrd) {
+        if (!window.confirm('آیا از لغو این سفارش اطمینان دارید؟')) return;
+        const res = await wpAjax('rs_order_cancel', { order_id: cancelOrd.dataset.cancelOrder });
+        showToast(res.data?.message || '', res.success ? 'i-check' : 'i-info');
+        if (res.success) setTimeout(() => window.location.reload(), 900);
+        return;
+      }
+
+      const reorderBtn = e.target.closest('[data-reorder]');
+      if (reorderBtn) {
+        const res = await wpAjax('rs_order_reorder', { order_id: reorderBtn.dataset.reorder });
+        showToast(res.data?.message || '', res.success ? 'i-check' : 'i-info');
+        if (res.success && res.data.cart_url) {
+          setTimeout(() => { window.location.href = res.data.cart_url; }, 700);
+        }
+        return;
+      }
+
+      if (e.target.closest('#wishlist-top')) {
+        openWishlistModal();
+        return;
+      }
+
+      if (e.target.closest('[data-open-login]')) {
+        openModal('login-modal');
+        return;
+      }
+
+      if (e.target.closest('.drawer-close') || e.target.closest('.modal-close') || e.target.id === 'page-overlay') {
+        closeLayers();
+        return;
+      }
+
+      if (!e.target.closest('.search-box')) {
+        $$('.search-box.open').forEach(b => b.classList.remove('open'));
+      }
+
+      if (!e.target.closest('.category-nav')) {
+        $('.category-nav')?.classList.remove('open');
+        $('#category-button')?.setAttribute('aria-expanded', 'false');
+      }
+    });
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        closeLayers();
+        $$('.search-box.open').forEach(b => b.classList.remove('open'));
+      }
+    });
+  }
+
+  /* اجرای اولیه */
+  initStickyAndScroll();
+  initNavigation();
+  initHeroAndCarousels();
+  initLiveSearch();
+  refreshWishlistButtons();
+  initShopPage();
+  initSingleProduct();
+  initCheckoutWizard();
+  initAccountAndForms();
+  initDelegatedEvents();
+
+  window.RS = { showToast, addProductToCart, toggleWishlist, formatPrice, toFa };
+})();

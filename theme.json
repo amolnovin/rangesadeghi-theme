@@ -1,0 +1,39 @@
+{
+  "$schema": "https://schemas.wp.org/trunk/theme.json",
+  "version": 2,
+  "settings": {
+    "appearanceTools": true,
+    "color": {
+      "custom": true,
+      "defaultPalette": false,
+      "palette": [
+        { "slug": "brand-red", "color": "#df3639", "name": "قرمز برند رنگ صادقی" },
+        { "slug": "brand-red-dark", "color": "#b92427", "name": "قرمز تیره" },
+        { "slug": "brand-gold", "color": "#b08948", "name": "طلایی مکمل" },
+        { "slug": "brand-green", "color": "#2f7d4f", "name": "سبز وضعیت" },
+        { "slug": "ink", "color": "#1a1a1a", "name": "متن اصلی" },
+        { "slug": "muted", "color": "#8a8a8a", "name": "متن خاکستری" },
+        { "slug": "surface-cream", "color": "#f6f4f1", "name": "پس‌زمینه کرم" },
+        { "slug": "surface-white", "color": "#ffffff", "name": "سفید" }
+      ]
+    },
+    "layout": {
+      "contentSize": "1240px",
+      "wideSize": "1240px"
+    },
+    "typography": {
+      "fontFamilies": [
+        {
+          "fontFamily": "IRANYekanX, Vazirmatn, Tahoma, Arial, sans-serif",
+          "name": "ایران‌یکان ایکس (متن)",
+          "slug": "iranyekanx"
+        },
+        {
+          "fontFamily": "Vazirmatn, IRANYekanX, Tahoma, sans-serif",
+          "name": "وزیرمتن (تیتر)",
+          "slug": "vazirmatn"
+        }
+      ]
+    }
+  }
+}
