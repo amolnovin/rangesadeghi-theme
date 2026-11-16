@@ -113,6 +113,27 @@ python3 build.py
 
 نسخه فشرده پروژه: `rangsadeghy-html.zip` (شامل ۱۳ صفحه HTML، `styles.css`، `pages.css`، `app.js`، `pages.js`، `build.py`، `README.md` و پوشه `assets`).
 
+---
+
+## مخزن گیت‌هاب و انتشار
+
+مخزن: [github.com/amolnovin/rangesadeghi-theme](https://github.com/amolnovin/rangesadeghi-theme) (شاخه‌ی `main`)
+
+```bash
+git clone https://github.com/amolnovin/rangesadeghi-theme.git
+cd rangesadeghi-theme
+python3 -m http.server 8000
+```
+
+قالب کاملاً استاتیک است، پس روی **GitHub Pages** هم بدون هیچ تنظیم اضافه‌ای اجرا می‌شود:
+
+1. در مخزن: `Settings → Pages`
+2. در بخش *Build and deployment* گزینه‌ی **Deploy from a branch** را انتخاب کنید.
+3. شاخه‌ی `main` و پوشه‌ی `/ (root)` را بزنید و Save.
+4. آدرس نهایی: `https://amolnovin.github.io/rangesadeghi-theme/`
+
+نکته: فایل`.nojekyll` از قبل در ریشه قرار داده شده تا صفحات بدون پردازش Jekyll سرو شوند.
+
 ## اطلاعات واقعی استفاده‌شده
 
 - **درباره ما**: «فروشگاه رنگ صادقی با تمرکز تخصصی بر رنگ ساختمانی، رنگ صنعتی، رنگ پتینه، هنری و ابزارآلات دستی و برقی حرفه‌ای فعالیت می‌کند…» و بخش «We Work With the Best Partners».
