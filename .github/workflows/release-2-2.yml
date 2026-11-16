@@ -1,0 +1,89 @@
+name: Verify and publish WordPress 2.2.0
+on:
+  push:
+    branches: [arena/4c243e44-rangesadeghi-theme]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  verify-and-release:
+    if: github.ref == 'refs/heads/arena/4c243e44-rangesadeghi-theme'
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: wordpress_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -proot"
+          --health-interval=10s --health-timeout=5s --health-retries=12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Syntax and UI checks
+        run: |
+          set -euo pipefail
+          find app bootstrap config woocommerce tests -name '*.php' -print0 | xargs -0 -n 1 php -l
+          find . -maxdepth 1 -name '*.php' -print0 | xargs -0 -n 1 php -l
+          php tests/smoke.php
+          node --check resources/js/theme.js
+          node --check resources/js/admin-panel.js
+          npm install --no-save --no-package-lock jsdom
+          node tests/checkout-ui.cjs
+      - name: Integration with WordPress and WooCommerce
+        run: |
+          set -euo pipefail
+          exec > >(tee "$RUNNER_TEMP/rs-integration.log") 2>&1
+          curl -fsSL https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar -o "$RUNNER_TEMP/wp-cli.phar"
+          wp() { php "$RUNNER_TEMP/wp-cli.phar" "$@" --path="$RUNNER_TEMP/wp"; }
+          mkdir -p "$RUNNER_TEMP/wp"
+          wp core download --version=6.7.2
+          wp config create --dbname=wordpress_test --dbuser=root --dbpass=root --dbhost=127.0.0.1:3306
+          wp core install --url=http://example.test --title='Test' --admin_user=admin --admin_password=test-password --admin_email=admin@example.test --skip-email
+          ln -s "$GITHUB_WORKSPACE" "$RUNNER_TEMP/wp/wp-content/themes/rangesadeghi"
+          wp theme activate rangesadeghi
+          wp plugin install woocommerce --version=9.6.2 --activate
+          wp eval-file "$GITHUB_WORKSPACE/tests/woocommerce-integration.php"
+      - name: Report integration errors
+        if: failure()
+        run: |
+          if test -f "$RUNNER_TEMP/rs-integration.log"; then
+            python3 - <<'PYERROR'
+          import os
+          p = os.path.join(os.environ['RUNNER_TEMP'], 'rs-integration.log')
+          text = open(p, errors='replace').read()[-4500:]
+          print('::error::' + text.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A'))
+          PYERROR
+          fi
+      - name: Build and verify installable ZIP
+        run: |
+          set -euo pipefail
+          git archive --format=zip --prefix=rangesadeghi/ --output="$RUNNER_TEMP/rangesadeghi-wordpress-2.2.0.zip" HEAD -- \
+            app bootstrap config resources assets woocommerce 404.php archive.php comments.php footer.php \
+            front-page.php functions.php header.php home.php index.php page.php rtl.css screenshot.png \
+            search.php single.php style.css styles.css pages.css home.css template-about.php \
+            template-categories.php template-contact.php template-order-tracking.php template-stores.php \
+            theme.json woocommerce.php WORDPRESS.md
+          python3 - <<'PY'
+          import os, zipfile
+          p = os.path.join(os.environ['RUNNER_TEMP'], 'rangesadeghi-wordpress-2.2.0.zip')
+          with zipfile.ZipFile(p) as z:
+              required = ['style.css','index.php','functions.php','styles.css','pages.css','home.css',
+                          'bootstrap/app.php','config/app.php','resources/js/theme.js',
+                          'resources/views/woocommerce/account-native.blade.php','woocommerce/checkout/form-checkout.php']
+              assert all('rangesadeghi/' + n in z.namelist() for n in required)
+              assert z.testzip() is None
+              assert b'Version: 2.2.0' in z.read('rangesadeghi/style.css')
+          PY
+          sha256sum "$RUNNER_TEMP/rangesadeghi-wordpress-2.2.0.zip"
+      - name: Publish preview release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release create v2.2.0 "$RUNNER_TEMP/rangesadeghi-wordpress-2.2.0.zip" --target "$GITHUB_SHA" --prerelease \
+            --title 'قالب وردپرس رنگ صادقی ۲.۲.۰' \
+            --notes 'نسخه آزمایشی با سبد خرید، تسویه‌حساب چندمرحله‌ای و حساب کاربری در ساختار ووکامرس. درگاه‌ها، روش‌های ارسال و اعتبارسنجی توسط ووکامرس مدیریت می‌شوند. آزمون خودکار با WordPress 6.7.2 و WooCommerce 9.6.2 انجام شده است؛ پیش از استفاده عملیاتی درگاه و افزونه‌های فروشگاه خود را در محیط آزمایشی بررسی کنید. فایل ZIP پیوست از بخش پوسته‌های وردپرس قابل نصب است.'
+          gh release view v2.2.0 --json assets,isDraft --jq '{isDraft,assets:[.assets[].name]}'

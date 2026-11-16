@@ -86,3 +86,30 @@ body.admin-bar .main-header.is-sticky {
     display: block !important;
   }
 }
+
+/* WooCommerce checkout and account endpoints, using the reference card layout. */
+.rs-native-checkout { display: block; max-width: 940px; margin: 0 auto; }
+.rs-native-checkout .co-main { width: 100%; }
+.rs-native-checkout .form-row { margin: 0 0 14px; }
+.rs-native-checkout .form-row label { display: block; margin-bottom: 5px; font-weight: 600; }
+.rs-native-checkout input.input-text,
+.rs-native-checkout textarea,
+.rs-native-checkout select,
+.rs-account-endpoint input.input-text,
+.rs-account-endpoint select { width: 100%; padding: 11px; border: 1px solid #ddd; border-radius: 10px; font: inherit; background: #fff; }
+.rs-native-checkout .woocommerce-checkout-review-order-table { width: 100%; border-collapse: collapse; }
+.rs-native-checkout .woocommerce-checkout-review-order-table th,
+.rs-native-checkout .woocommerce-checkout-review-order-table td { padding: 12px 6px; text-align: start; border-bottom: 1px solid #eee; }
+.rs-native-checkout #payment ul { padding: 0; list-style: none; }
+.rs-native-checkout #payment li { padding: 12px; border: 1px solid #eee; border-radius: 12px; margin: 8px 0; }
+.rs-native-checkout #place_order { width: 100%; margin-top: 16px; }
+.rs-native-checkout .rs-checkout-controls { display: none; gap: 12px; justify-content: space-between; }
+.rs-native-checkout.rs-steps-enabled .rs-checkout-controls { display: flex; }
+.rs-native-checkout.rs-steps-enabled[data-rs-step="shipping"] #payment { display: none; }
+.rs-native-checkout [hidden], .rs-native-checkout button[hidden] { display: none !important; }
+.rs-account-endpoint { margin: 20px 0; }
+.rs-account-endpoint .woocommerce-MyAccount-navigation ul { display: flex; flex-wrap: wrap; gap: 10px; list-style: none; padding: 0; }
+.rs-account-endpoint .woocommerce-MyAccount-navigation a { display: block; padding: 8px 12px; border-radius: 8px; background: #f7f5f2; }
+.rs-account-endpoint .woocommerce-MyAccount-content { margin-top: 20px; overflow-x: auto; }
+.rs-account-endpoint table { width: 100%; border-collapse: collapse; }
+.rs-account-endpoint th, .rs-account-endpoint td { padding: 10px; border-bottom: 1px solid #eee; text-align: start; }

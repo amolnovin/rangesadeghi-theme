@@ -183,7 +183,7 @@
 
             {{-- آدرس‌ها --}}
             <section class="account-panel" id="panel-addresses" aria-label="آدرس‌های من">
-              <div class="panel-head"><h2>آدرس‌های من</h2><span class="panel-hint">حداکثر ۵ آدرس قابل ثبت است</span></div>
+              <div class="panel-head"><h2>آدرس‌های من</h2><a class="text-link" href="{{ wc_get_endpoint_url('edit-address', '', wc_get_page_permalink('myaccount')) }}">ویرایش آدرس‌های صورتحساب و ارسال ووکامرس</a></div>
               <div class="address-grid" id="account-address-grid">
                 @forelse($savedAddresses as $addr)
                   <article class="address-card {{ !empty($addr['isDefault']) ? 'is-default' : '' }}" data-address-card="{{ $addr['id'] }}">
@@ -247,7 +247,7 @@
 
             {{-- اطلاعات حساب --}}
             <section class="account-panel" id="panel-profile" aria-label="اطلاعات حساب">
-              <div class="panel-head"><h2>اطلاعات حساب</h2><span class="panel-hint">اطلاعات شما نزد ما محفوظ است</span></div>
+              <div class="panel-head"><h2>اطلاعات حساب</h2><a class="text-link" href="{{ wc_get_endpoint_url('edit-account', '', wc_get_page_permalink('myaccount')) }}">تغییر رمز عبور و اطلاعات حساب</a></div>
               <form class="profile-form" id="account-profile-form">
                 <div class="form-grid">
                   <div class="field"><label for="p-name">نام و نام خانوادگی <span>*</span></label><input id="p-name" name="fullname" required value="{{ $accountUser['name'] }}"></div>
