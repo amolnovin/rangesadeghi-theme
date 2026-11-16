@@ -1,0 +1,16 @@
+# خروجی‌های ساخت
+rangsadeghy-html.zip
+*.zip
+
+# فایل‌های سیستمی و موقت
+.DS_Store
+Thumbs.db
+__pycache__/
+*.pyc
+node_modules/
+.venv/
+.cache/
+*.log
+
+# فایل‌های محیطی
+.sudo_as_admin_successful
