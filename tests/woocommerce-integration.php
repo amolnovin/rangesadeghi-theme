@@ -28,6 +28,12 @@ rs_assert((bool) $user, 'Test user not found');
 wp_set_current_user($user->ID);
 $accountView = rs_view('woocommerce.my-account', ['dataPage' => 'account']);
 rs_assert(str_contains($accountView, 'account-profile-form') && str_contains($accountView, 'panel-orders'), 'Account dashboard did not render');
+// Payment gateway availability depends on a genuine checkout page query.
+$checkoutPage = wp_insert_post(['post_title' => 'Checkout', 'post_name' => 'checkout-test', 'post_status' => 'publish', 'post_type' => 'page']);
+update_option('woocommerce_checkout_page_id', $checkoutPage);
+global $wp_query;
+$wp_query = new WP_Query(['page_id' => $checkoutPage]);
+rs_assert(is_checkout(), 'Checkout query was not initialized');
 $checkout = WC()->checkout();
 ob_start();
 wc_get_template('checkout/form-checkout.php', ['checkout' => $checkout]);
