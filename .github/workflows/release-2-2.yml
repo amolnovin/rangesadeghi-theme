@@ -35,6 +35,7 @@ jobs:
       - name: Integration with WordPress and WooCommerce
         run: |
           set -euo pipefail
+          exec > >(tee "$RUNNER_TEMP/rs-integration.log") 2>&1
           curl -fsSL https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar -o "$RUNNER_TEMP/wp-cli.phar"
           wp() { php "$RUNNER_TEMP/wp-cli.phar" "$@" --path="$RUNNER_TEMP/wp"; }
           mkdir -p "$RUNNER_TEMP/wp"
@@ -45,6 +46,17 @@ jobs:
           wp theme activate rangesadeghi
           wp plugin install woocommerce --version=9.6.2 --activate
           wp eval-file "$GITHUB_WORKSPACE/tests/woocommerce-integration.php"
+      - name: Report integration errors
+        if: failure()
+        run: |
+          if test -f "$RUNNER_TEMP/rs-integration.log"; then
+            python3 - <<'PYERROR'
+          import os
+          p = os.path.join(os.environ['RUNNER_TEMP'], 'rs-integration.log')
+          text = open(p, errors='replace').read()[-4500:]
+          print('::error::' + text.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A'))
+          PYERROR
+          fi
       - name: Build and verify installable ZIP
         run: |
           set -euo pipefail
