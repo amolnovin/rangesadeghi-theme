@@ -17,8 +17,9 @@ if (rs_is_wc()) {
     }
 
     if (is_account_page()) {
-        if (is_wc_endpoint_url('view-order')) {
-            rs_render('woocommerce.order-details', ['dataPage' => 'order', 'activeNav' => 'account']);
+        if (is_wc_endpoint_url()) {
+            // Native endpoints preserve password reset, address, order and plugin hooks.
+            rs_render('woocommerce.account-native', ['dataPage' => 'account', 'activeNav' => 'account']);
         } else {
             rs_render('woocommerce.my-account', ['dataPage' => 'account', 'activeNav' => 'account']);
         }

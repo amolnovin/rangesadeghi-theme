@@ -267,6 +267,18 @@
   /* -------------------- سبد خرید AJAX + همگام‌سازی زنده UI -------------------- */
   function syncCartDom(payload) {
     if (!payload) return;
+    ['cart-checkout', 'cart-mobile-checkout'].forEach(id => {
+      const link = document.getElementById(id);
+      if (!link) return;
+      link.classList.toggle('is-disabled', !payload.count);
+      link.setAttribute('aria-disabled', String(!payload.count));
+      if (!payload.count) link.setAttribute('tabindex', '-1');
+      else link.removeAttribute('tabindex');
+    });
+    const mobileBar = $('.cart-mobile-bar');
+    if (mobileBar) mobileBar.classList.toggle('is-empty', !payload.count);
+    const clear = $('#cart-page-clear');
+    if (clear) clear.hidden = !payload.count;
     $$('.cart-count').forEach(el => { el.textContent = payload.count_fa || '۰'; });
     const drawerTotal = $('#cart-total');
     if (drawerTotal) drawerTotal.textContent = payload.subtotal_fa || '۰ تومان';
@@ -312,8 +324,8 @@
         freeText.textContent = !payload.count
           ? 'با افزودن کالا، هزینه ارسال محاسبه می‌شود.'
           : payload.free_remaining > 0
-            ? `${payload.free_remaining_fa} تومان تا ارسال رایگان باقی مانده است.`
-            : 'ارسال این سفارش رایگان است';
+            ? `${payload.free_remaining_fa} تومان تا سقف پیشنهادی ارسال رایگان باقی مانده است؛ شرایط نهایی در تسویه حساب مشخص می‌شود.`
+            : 'به سقف پیشنهادی رسیده‌اید؛ شرایط ارسال در تسویه حساب مشخص می‌شود.';
       }
       if (freeBar) freeBar.style.width = (payload.count ? payload.free_percent : 0) + '%';
 
@@ -369,11 +381,13 @@
   }
 
   async function mutateCart(cartKey, cartAction) {
-    const res = await wpAjax('rs_cart_update', { cart_key: cartKey, cart_action: cartAction });
-    if (res.success) {
-      syncCartDom(res.data);
-      if (res.data.message) showToast(res.data.message);
-    }
+    try {
+      const res = await wpAjax('rs_cart_update', { cart_key: cartKey, cart_action: cartAction });
+      if (res.success) {
+        syncCartDom(res.data);
+        if (res.data.message) showToast(res.data.message);
+      } else showToast(res.data?.message || 'امکان تغییر سبد خرید وجود ندارد.', 'i-info');
+    } catch { showToast('ارتباط با فروشگاه برقرار نشد.', 'i-info'); }
   }
 
   /* -------------------- علاقه‌مندی‌ها (کوکی + متای کاربر + مودال سریع) -------------------- */
@@ -623,6 +637,63 @@
         $$('.product-tabs .tab-panel').forEach(p => p.classList.toggle('active', p.id === target));
       });
     });
+  }
+
+  // Progressive enhancement: WooCommerce remains responsible for checkout,
+  // AJAX totals, gateway fields, validation and the final form submission.
+  function initNativeCheckoutSteps() {
+    const form = $('form.rs-native-checkout');
+    if (!form) return;
+    const address = $('[data-rs-checkout-panel="address"]', form);
+    const review = $('[data-rs-checkout-panel="review"]', form);
+    const back = $('[data-rs-checkout-back]', form);
+    const next = $('[data-rs-checkout-next]', form);
+    if (!address || !review || !back || !next) return;
+    const keys = ['address', 'shipping', 'payment'];
+    let current = 0;
+    form.classList.add('rs-steps-enabled');
+    const show = (index, refresh = false) => {
+      current = Math.max(0, Math.min(index, keys.length - 1));
+      form.dataset.rsStep = keys[current];
+      address.hidden = current !== 0;
+      review.hidden = current === 0;
+      back.textContent = current === 0 ? 'بازگشت به سبد خرید' : 'مرحله قبل';
+      back.hidden = false;
+      next.hidden = current === 2;
+      next.textContent = current === 1 ? 'انتخاب روش پرداخت' : 'ادامه به روش ارسال';
+      $$('.rs-checkout-steps [data-rs-indicator]').forEach((el, i) => {
+        el.classList.toggle('is-active', i === current);
+        el.classList.toggle('is-done', i < current);
+        if (i === current) el.setAttribute('aria-current', 'step');
+        else el.removeAttribute('aria-current');
+      });
+      if (refresh && window.jQuery) window.jQuery(document.body).trigger('update_checkout');
+    };
+    next.addEventListener('click', () => {
+      if (current === 0) {
+        const missing = $$('.validate-required input, .validate-required select, .validate-required textarea', address)
+          .find(field => field.offsetParent !== null && !field.disabled &&
+            (field.type === 'checkbox' ? !field.checked : !field.value.trim()));
+        if (missing) {
+          missing.focus();
+          showToast('لطفاً فیلدهای ضروری نشانی را تکمیل کنید.', 'i-info');
+          return;
+        }
+      }
+      show(current + 1, current === 0);
+    });
+    back.addEventListener('click', () => {
+      if (current === 0) window.location.href = WP.cartUrl || '/';
+      else show(current - 1);
+    });
+    if (window.jQuery) {
+      window.jQuery(document.body).on('checkout_error', () => {
+        // Server validation can report errors on fields in a hidden step.
+        const invalid = $('.woocommerce-invalid', address);
+        if (invalid) { show(0); invalid.querySelector('input,select,textarea')?.focus(); }
+      });
+    }
+    show(0);
   }
 
   /* -------------------- تسویه حساب ۴ مرحله‌ای متصل به ووکامرس -------------------- */
@@ -1074,6 +1145,7 @@
   initShopPage();
   initSingleProduct();
   initCheckoutWizard();
+  initNativeCheckoutSteps();
   initAccountAndForms();
   initDelegatedEvents();
 

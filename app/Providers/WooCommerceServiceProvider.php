@@ -31,8 +31,7 @@ final class WooCommerceServiceProvider extends ServiceProvider
         // ذخیره متای اختصاصی تسویه حساب روی سفارش ووکامرس (سازگار با HPOS)
         add_action('woocommerce_checkout_create_order', [$this, 'saveCustomOrderMeta'], 10, 2);
 
-        // ارسال رایگان خودکار بر اساس سقف تنظیم‌شده در پنل قالب
-        add_filter('woocommerce_package_rates', [$this, 'filterShippingRatesForThreshold'], 20, 2);
+        // Shipping rates and free-shipping eligibility are controlled by WooCommerce shipping zones.
 
         // اندپوینت‌های AJAX اختصاصی و فوق‌سبک فروشگاه، سبد خرید، علاقه‌مندی و حساب کاربری
         $publicAjax = [
@@ -346,6 +345,19 @@ final class WooCommerceServiceProvider extends ServiceProvider
         }
 
         $currentQty = (int) $cartContents[$key]['quantity'];
+        $product = $cartContents[$key]['data'];
+        $requestedQty = match ($action) {
+            'plus' => $currentQty + 1,
+            'minus' => max(0, $currentQty - 1),
+            'remove' => 0,
+            'set' => max(0, (int) ($_POST['quantity'] ?? 1)),
+            default => -1,
+        };
+        if ($requestedQty < 0 || ($product->is_sold_individually() && $requestedQty > 1)
+            || ($product->get_max_purchase_quantity() >= 0 && $requestedQty > $product->get_max_purchase_quantity())
+            || !apply_filters('woocommerce_update_cart_validation', true, $key, $cartContents[$key], $requestedQty)) {
+            wp_send_json_error(['message' => 'تعداد انتخاب‌شده مجاز نیست یا موجودی کافی وجود ندارد.']);
+        }
         if ($action === 'plus') {
             WC()->cart->set_quantity($key, $currentQty + 1, true);
         } elseif ($action === 'minus') {
@@ -766,7 +778,7 @@ final class WooCommerceServiceProvider extends ServiceProvider
             'coupon_discount' => $couponDiscount,
             'coupon_discount_fa' => $couponDiscount > 0 ? ('− ' . rs_price($couponDiscount) . ' تومان') : '۰ تومان',
             'coupons' => array_values($cart->get_applied_coupons()),
-            'shipping_fa' => $count === 0 ? 'پس از انتخاب آدرس' : ($shippingTotal > 0 ? (rs_price($shippingTotal) . ' تومان') : 'رایگان'),
+            'shipping_fa' => $shippingTotal > 0 ? (rs_price($shippingTotal) . ' تومان') : 'در تسویه حساب مشخص می‌شود',
             'total' => $totalPayable,
             'total_fa' => rs_price($totalPayable) . ' تومان',
             'free_remaining' => $remainingFree,

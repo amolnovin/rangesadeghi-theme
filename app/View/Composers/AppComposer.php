@@ -14,7 +14,7 @@ final class AppComposer extends ViewComposer
 {
     public static function views(): array
     {
-        return ['layouts.app'];
+        return ['layouts.app', 'front-page', 'pages.contact', 'pages.stores', 'woocommerce.checkout', 'woocommerce.my-account', 'woocommerce.order-details', 'woocommerce.single-product'];
     }
 
     public function with(array $data): array

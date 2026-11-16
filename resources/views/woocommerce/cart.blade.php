@@ -39,9 +39,9 @@
                 @if(!$hasItems)
                   با افزودن کالا، هزینه ارسال محاسبه می‌شود.
                 @elseif($freeRemaining > 0)
-                  {{ $cartPayload['free_remaining_fa'] }} تومان تا ارسال رایگان باقی مانده است.
+                  {{ $cartPayload['free_remaining_fa'] }} تومان تا سقف پیشنهادی ارسال رایگان باقی مانده است؛ شرایط نهایی در تسویه حساب مشخص می‌شود.
                 @else
-                  ارسال این سفارش رایگان است
+                  به سقف پیشنهادی رسیده‌اید؛ شرایط ارسال در تسویه حساب مشخص می‌شود.
                 @endif
               </span>
             </div>
@@ -98,7 +98,7 @@
 
           <div class="cart-panel-foot">
             <a class="btn btn-outline btn-sm" href="{{ rs_page_url('shop') }}"><svg><use href="#i-chevron-right"/></svg>ادامه خرید</a>
-            <span class="cart-panel-note"><svg><use href="#i-info"/></svg>قیمت‌ها به تومان و شامل مالیات است.</span>
+            <span class="cart-panel-note"><svg><use href="#i-info"/></svg>مالیات و هزینه ارسال در تسویه حساب نهایی می‌شود.</span>
           </div>
         </section>
 
