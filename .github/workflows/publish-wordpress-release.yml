@@ -1,0 +1,50 @@
+name: Publish WordPress preview release
+
+on:
+  push:
+    branches:
+      - arena/0c21745c-rangesadeghi-theme
+    paths:
+      - .github/workflows/publish-wordpress-release.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/arena/0c21745c-rangesadeghi-theme'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and verify installable theme ZIP
+        run: |
+          git archive --format=zip --prefix=rangesadeghi/ --output="$RUNNER_TEMP/rangesadeghi-wordpress-2.1.0.zip" HEAD -- \
+            app bootstrap config resources assets woocommerce 404.php archive.php comments.php footer.php \
+            front-page.php functions.php header.php home.php index.php page.php rtl.css screenshot.png \
+            search.php single.php style.css styles.css pages.css home.css template-about.php \
+            template-categories.php template-contact.php template-order-tracking.php template-stores.php \
+            theme.json woocommerce.php WORDPRESS.md
+          python3 - <<'PY'
+          import os, zipfile
+          path = os.path.join(os.environ['RUNNER_TEMP'], 'rangesadeghi-wordpress-2.1.0.zip')
+          with zipfile.ZipFile(path) as archive:
+              names = set(archive.namelist())
+              required = ['style.css', 'index.php', 'functions.php', 'styles.css', 'pages.css', 'home.css',
+                          'bootstrap/app.php', 'config/app.php', 'resources/js/theme.js',
+                          'resources/views/layouts/app.blade.php', 'woocommerce/archive-product.php']
+              missing = [name for name in required if 'rangesadeghi/' + name not in names]
+              if missing or archive.testzip():
+                  raise SystemExit('Invalid theme ZIP: ' + ', '.join(missing))
+          PY
+          sha256sum "$RUNNER_TEMP/rangesadeghi-wordpress-2.1.0.zip"
+      - name: Upload and publish draft preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(gh release view v2.1.0 --json isDraft --jq .isDraft)" = true
+          gh release edit v2.1.0 --target "$GITHUB_SHA" --notes "قالب وردپرس رنگ صادقی ۲.۱.۰ — پیش‌انتشار آزمایشی. فایل ZIP پیوست، بستهٔ قابل نصب قالب است. این نسخه هنوز روی نصب واقعی وردپرس، ووکامرس و درگاه‌های پرداخت آزمون یکپارچه نشده است؛ پیش از استفاده عملیاتی آن را در محیط آزمایشی بررسی کنید. تسویه‌حساب از فرم استاندارد ووکامرس استفاده می‌کند. راهنمای نصب و محدودیت‌ها در WORDPRESS.md آمده است."
+          gh release upload v2.1.0 "$RUNNER_TEMP/rangesadeghi-wordpress-2.1.0.zip" --clobber
+          test "$(gh release view v2.1.0 --json assets --jq '[.assets[] | select(.name == "rangesadeghi-wordpress-2.1.0.zip" and .state == "uploaded")] | length')" = 1
+          gh release edit v2.1.0 --draft=false --prerelease
