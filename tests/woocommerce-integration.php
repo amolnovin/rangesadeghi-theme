@@ -202,6 +202,7 @@ $provider->validateDeliveryPreference();
 rs_assert(wc_notice_count('error') === 0, 'Valid scheduled time rejected');
 $scheduledPost = $_POST;
 $_POST += ['woocommerce-process-checkout-nonce' => wp_create_nonce('woocommerce-process_checkout'), 'billing_first_name' => 'Buyer', 'billing_last_name' => 'Name', 'billing_email' => 'buyer@example.test', 'billing_phone' => '1234567890', 'billing_country' => 'US', 'billing_state' => 'CA', 'billing_city' => 'Los Angeles', 'billing_address_1' => '123 Real Street', 'payment_method' => 'bacs'];
+WC()->session->set('chosen_shipping_methods', ['rs_store_pickup']);
 $scheduledId = $checkout->create_order($checkout->get_posted_data());
 rs_assert(!is_wp_error($scheduledId) && $scheduledId > 0, 'Could not create scheduled order');
 $scheduledOrder = wc_get_order($scheduledId);
