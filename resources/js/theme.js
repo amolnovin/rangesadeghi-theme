@@ -649,61 +649,145 @@
     const back = $('[data-rs-checkout-back]', form);
     const next = $('[data-rs-checkout-next]', form);
     if (!address || !review || !back || !next) return;
+    const shippingExtra = $('[data-rs-shipping-extra]', form);
+    const paymentExtra = $('[data-rs-payment-extra]', form);
+    // Relocate the genuine WooCommerce order fields, not copies of their inputs.
+    const notes = $('.rs-order-notes', address);
+    if (notes && shippingExtra) shippingExtra.appendChild(notes);
     const keys = ['address', 'shipping', 'payment'];
     let current = 0;
     form.classList.add('rs-steps-enabled');
+    const savedList = $('[data-rs-saved-list]', form);
+    if (savedList) savedList.hidden = false;
+    $$('.rs-saved-address', form).forEach(button => button.addEventListener('click', () => {
+      let saved;
+      try { saved = JSON.parse(button.dataset.address); } catch (_) { return; }
+      const values = { billing_first_name: saved.name, billing_last_name: '', billing_phone: saved.phone, billing_city: saved.city, billing_postcode: saved.postal, billing_address_1: saved.address, billing_address_2: '' };
+      Object.entries(values).forEach(([id, value]) => {
+        const field = document.getElementById(id);
+        if (!field || !form.contains(field)) return;
+        field.value = value || '';
+        field.dispatchEvent(new Event('input', { bubbles: true }));
+        field.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      const state = $('#billing_state', form);
+      if (state) {
+        const target = String(saved.province || '').trim();
+        if (state.tagName === 'SELECT') {
+          const option = Array.from(state.options).find(o => o.value === target || o.textContent.trim() === target);
+          state.value = option ? option.value : '';
+        } else state.value = target;
+        state.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      $$('.rs-saved-address', form).forEach(el => el.classList.toggle('is-selected', el === button));
+    }));
     const syncShippingMessage = () => {
+      $$('.woocommerce-shipping-methods li', form).forEach(item => {
+        if (item.querySelector('.rs-shipping-icon')) return;
+        const label = item.querySelector('label');
+        if (!label) return;
+        const icon = document.createElement('span');
+        icon.className = 'co-option-icon rs-shipping-icon';
+        icon.setAttribute('aria-hidden', 'true');
+        icon.innerHTML = '<svg><use href="#i-truck"></use></svg>';
+        item.insertBefore(icon, label);
+      });
       const message = $('[data-rs-shipping-message]', form);
       if (message) message.hidden = current !== 1 || !!$('.woocommerce-checkout-review-order-table .shipping', form);
+    };
+    const updateReview = () => {
+      const different = $('#ship-to-different-address-checkbox', form)?.checked;
+      const prefix = different ? 'shipping_' : 'billing_';
+      const val = id => { const el = document.getElementById(id); return el && el.tagName === 'SELECT' ? (el.selectedOptions[0]?.textContent || '') : (el?.value || ''); };
+      const addressText = ['first_name', 'last_name', 'state', 'city', 'address_1', 'address_2', 'postcode'].map(k => val(prefix + k).trim()).filter(Boolean).join('، ');
+      const ship = $$('input[name^="shipping_method"]', form).filter(el => el.type === 'hidden' || el.checked).map(el => $$('label', form).find(label => label.htmlFor === el.id)?.textContent.trim()).filter(Boolean).join('، ');
+      const pay = $('input[name="payment_method"]:checked', form);
+      const label = pay && $$('label', form).find(label => label.htmlFor === pay.id);
+      const addressTarget = $('[data-rs-review-address]', form), shippingTarget = $('[data-rs-review-shipping]', form), paymentTarget = $('[data-rs-review-payment]', form);
+      if (addressTarget) addressTarget.textContent = addressText || '—';
+      if (shippingTarget) shippingTarget.textContent = ship || '—';
+      if (paymentTarget) paymentTarget.textContent = label?.textContent.trim() || '—';
     };
     const show = (index, refresh = false) => {
       current = Math.max(0, Math.min(index, keys.length - 1));
       form.dataset.rsStep = keys[current];
       address.hidden = current !== 0;
       review.hidden = current === 0;
+      if (shippingExtra) shippingExtra.hidden = current !== 1;
+      if (paymentExtra) paymentExtra.hidden = current !== 2;
       back.textContent = current === 0 ? 'بازگشت به سبد خرید' : 'مرحله قبل';
-      back.hidden = false;
       next.hidden = current === 2;
       next.textContent = current === 1 ? 'ادامه به پرداخت' : 'ادامه به روش ارسال';
-      const heading = $('[data-rs-review-heading]', form);
-      const description = $('[data-rs-review-description]', form);
-      if (heading) heading.textContent = current === 1 ? 'شیوه ارسال سفارش' : 'پرداخت و ثبت سفارش';
-      if (description) description.textContent = current === 1 ? 'روش ارسال را با توجه به نشانی خود انتخاب کنید.' : 'سفارش و روش پرداخت را بررسی کنید.';
+      const heading = $('[data-rs-review-heading]', form), description = $('[data-rs-review-description]', form);
+      if (heading) heading.textContent = current === 1 ? 'شیوه ارسال سفارش' : 'بازبینی سفارش';
+      if (description) description.textContent = current === 1 ? 'روش ارسال را با توجه به نشانی خود انتخاب کنید.' : 'کالاها و مبلغ نهایی را بررسی کنید.';
       const progress = $('.rs-checkout-steps');
       if (progress) progress.style.setProperty('--p', String((current + 1) / 4));
       $$('.rs-checkout-steps [data-rs-indicator]').forEach((el) => {
         const i = keys.indexOf(el.dataset.rsIndicator);
         el.classList.toggle('is-active', i === current);
         el.classList.toggle('is-done', el.dataset.rsIndicator === 'cart' || (i >= 0 && i < current));
-        if (i === current) el.setAttribute('aria-current', 'step');
-        else el.removeAttribute('aria-current');
+        if (i === current) el.setAttribute('aria-current', 'step'); else el.removeAttribute('aria-current');
+        const button = $('[data-rs-goto]', el);
+        if (button) button.disabled = i < 0 || i >= current;
       });
-      syncShippingMessage();
+      syncShippingMessage(); updateReview();
       if (refresh && window.jQuery) window.jQuery(document.body).trigger('update_checkout');
     };
     next.addEventListener('click', () => {
       if (current === 0) {
         const missing = $$('.validate-required input, .validate-required select, .validate-required textarea', address)
-          .find(field => field.offsetParent !== null && !field.disabled &&
-            (field.type === 'checkbox' ? !field.checked : !field.value.trim()));
-        if (missing) {
-          missing.focus();
-          showToast('لطفاً فیلدهای ضروری نشانی را تکمیل کنید.', 'i-info');
+          .find(field => field.offsetParent !== null && !field.disabled && (field.type === 'checkbox' ? !field.checked : !field.value.trim()));
+        if (missing) { missing.focus(); showToast('لطفاً فیلدهای ضروری نشانی را تکمیل کنید.', 'i-info'); return; }
+      }
+      if (current === 1) {
+        const day = $('#rs_delivery_day', form), slot = $('#rs_delivery_slot', form);
+        if (day && slot && ((!!day.value !== !!slot.value) || (day.value && day.min && day.value < day.min))) {
+          (day.value ? slot : day).focus();
+          showToast('روز و بازه ترجیحی را کامل کنید یا هر دو را خالی بگذارید.', 'i-info');
           return;
         }
       }
       show(current + 1, current === 0);
     });
-    back.addEventListener('click', () => {
-      if (current === 0) window.location.href = WP.cartUrl || '/';
-      else show(current - 1);
-    });
+    back.addEventListener('click', () => { if (current === 0) window.location.href = WP.cartUrl || '/'; else show(current - 1); });
+    $$('.rs-checkout-steps [data-rs-goto]').forEach(button => button.addEventListener('click', () => { const target = keys.indexOf(button.dataset.rsGoto); if (target >= 0 && target < current) show(target); }));
+    $('[data-rs-edit-address]', form)?.addEventListener('click', () => show(0));
+    $('[name="rs_gift_wrap"][type="checkbox"]', form)?.addEventListener('change', () => { if (window.jQuery) window.jQuery(document.body).trigger('update_checkout'); });
+    const finalReview = $('[data-rs-final-review]', form);
+    if (finalReview) finalReview.hidden = false;
+    form.addEventListener('change', updateReview);
     if (window.jQuery) {
-      window.jQuery(document.body).on('updated_checkout', syncShippingMessage);
+      window.jQuery(document.body).on('updated_checkout', () => { syncShippingMessage(); updateReview(); });
       window.jQuery(document.body).on('checkout_error', () => {
-        // Server validation can report errors on fields in a hidden step.
         const invalid = $('.woocommerce-invalid', address);
-        if (invalid) { show(0); invalid.querySelector('input,select,textarea')?.focus(); }
+        if (invalid) { show(0); invalid.querySelector('input,select,textarea')?.focus(); return; }
+        const day = $('#rs_delivery_day', form), slot = $('#rs_delivery_slot', form);
+        if (day && slot && ((!!day.value !== !!slot.value) || (day.value && day.min && day.value < day.min))) { show(1); day.focus(); }
+
+      });
+    }
+    const couponCard = $('[data-rs-coupon-card]', form), couponInput = $('[data-rs-coupon-input]', form), couponButton = $('[data-rs-coupon-submit]', form), couponNotice = $('[data-rs-coupon-notice]', form);
+    const params = window.wc_checkout_params;
+    if (couponCard && couponInput && couponButton && couponNotice && params?.wc_ajax_url && params?.apply_coupon_nonce && window.jQuery) {
+      couponCard.hidden = false;
+      document.body.classList.add('rs-custom-checkout-coupon');
+      couponButton.addEventListener('click', async () => {
+        const code = couponInput.value.trim();
+        if (!code) { couponNotice.textContent = 'کد تخفیف را وارد کنید.'; couponInput.focus(); return; }
+        couponButton.disabled = true; couponNotice.textContent = 'در حال بررسی کد…';
+        try {
+          const data = new URLSearchParams({ security: params.apply_coupon_nonce, coupon_code: code, billing_email: $('#billing_email', form)?.value || '' });
+          const response = await fetch(params.wc_ajax_url.replace('%%endpoint%%', 'apply_coupon'), { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' }, body: data });
+          if (!response.ok) throw new Error('coupon request failed');
+          const html = await response.text();
+          const doc = new DOMParser().parseFromString(html, 'text/html');
+          couponNotice.textContent = doc.body.textContent.trim() || 'پاسخی از فروشگاه دریافت نشد.';
+          if (doc.querySelector('.woocommerce-message, .is-success')) couponInput.value = '';
+          window.jQuery(document.body).trigger('applied_coupon_in_checkout', [code]);
+          window.jQuery(document.body).trigger('update_checkout', { update_shipping_method: false });
+        } catch (_) { couponNotice.textContent = 'بررسی کد ممکن نشد؛ لطفاً دوباره تلاش کنید.'; }
+        finally { couponButton.disabled = false; }
       });
     }
     show(0);

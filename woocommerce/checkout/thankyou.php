@@ -19,9 +19,10 @@ defined('ABSPATH') || exit;
                 </div>
             </section>
         <?php else : ?>
-            <?php wc_get_template('checkout/rs-progress.php', ['step' => 'done']); ?>
+            <?php wc_get_template('checkout/rs-progress.php', ['step' => ($order->needs_payment() || $order->has_status(['cancelled', 'refunded'])) ? 'payment' : 'done']); ?>
             <section class="co-card co-success">
-                <h1>جزئیات سفارش</h1>
+                <?php if ($order->is_paid()) : ?><div class="co-success-icon" aria-hidden="true"><svg viewBox="0 0 56 56"><circle cx="28" cy="28" r="25"/><path d="M16 28l8 8 16-17"/></svg></div><?php endif; ?>
+                <h1><?php echo $order->is_paid() ? 'سفارش شما ثبت شد' : 'جزئیات سفارش'; ?></h1>
                 <?php wc_get_template('checkout/order-received.php', ['order' => $order]); ?>
                 <p>وضعیت سفارش: <?php echo esc_html(wc_get_order_status_name($order->get_status())); ?></p>
                 <ul class="co-success-grid woocommerce-order-overview woocommerce-thankyou-order-details order_details">
@@ -33,7 +34,7 @@ defined('ABSPATH') || exit;
                     <li class="woocommerce-order-overview__total total"><span><?php esc_html_e('Total:', 'woocommerce'); ?></span><strong><?php echo wp_kses_post($order->get_formatted_order_total()); ?></strong></li>
                     <?php if ($order->get_payment_method_title()) : ?><li class="woocommerce-order-overview__payment-method method"><span><?php esc_html_e('Payment method:', 'woocommerce'); ?></span><strong><?php echo wp_kses_post($order->get_payment_method_title()); ?></strong></li><?php endif; ?>
                 </ul>
-                <div class="co-success-actions"><a class="btn btn-outline" href="<?php echo esc_url(wc_get_page_permalink('shop')); ?>">ادامه خرید</a><?php if (is_user_logged_in() && $order->get_user_id() === get_current_user_id()) : ?><a class="btn btn-primary" href="<?php echo esc_url($order->get_view_order_url()); ?>">مشاهده سفارش</a><?php endif; ?></div>
+                <div class="co-success-actions"><?php if ($order->needs_payment()) : ?><a class="btn btn-primary" href="<?php echo esc_url($order->get_checkout_payment_url()); ?>">پرداخت سفارش</a><?php endif; ?><a class="btn btn-outline" href="<?php echo esc_url(wc_get_page_permalink('shop')); ?>">ادامه خرید</a><?php if (is_user_logged_in() && $order->get_user_id() === get_current_user_id()) : ?><a class="btn btn-primary" href="<?php echo esc_url($order->get_view_order_url()); ?>">مشاهده سفارش</a><?php endif; ?></div>
             </section>
         <?php endif; ?>
         <?php do_action('woocommerce_thankyou_' . $order->get_payment_method(), $order->get_id()); ?>

@@ -3,6 +3,13 @@
 defined('ABSPATH') || exit;
 $cart = WC()->cart;
 if (!$cart) return;
+// Shipping is known only when every package has a real chosen rate.
+$packages = $cart->needs_shipping() ? WC()->shipping()->get_packages() : [];
+$chosen = WC()->session ? (array) WC()->session->get('chosen_shipping_methods', []) : [];
+$shippingKnown = !empty($packages);
+foreach ($packages as $index => $package) {
+    if (empty($chosen[$index]) || !isset($package['rates'][$chosen[$index]])) { $shippingKnown = false; break; }
+}
 ?>
 <div class="rs-checkout-summary-fragment">
     <h2>خلاصه سفارش <small>(<?php echo esc_html(rs_fa($cart->get_cart_contents_count())); ?> کالا)</small></h2>
@@ -26,7 +33,7 @@ if (!$cart) return;
         <div class="summary-row is-discount"><span><?php wc_cart_totals_coupon_label($coupon); ?></span><b><?php wc_cart_totals_coupon_html($coupon); ?></b></div>
     <?php endforeach; ?>
     <?php if ($cart->needs_shipping()) : ?>
-        <div class="summary-row"><span>هزینه ارسال</span><b><?php echo wp_kses_post($cart->has_calculated_shipping() ? $cart->get_cart_shipping_total() : 'پس از انتخاب آدرس'); ?></b></div>
+        <div class="summary-row"><span>هزینه ارسال</span><b><?php echo wp_kses_post($shippingKnown ? $cart->get_cart_shipping_total() : 'پس از انتخاب روش ارسال'); ?></b></div>
     <?php endif; ?>
     <?php foreach ($cart->get_fees() as $fee) : ?>
         <div class="summary-row"><span><?php echo esc_html($fee->name); ?></span><b><?php wc_cart_totals_fee_html($fee); ?></b></div>

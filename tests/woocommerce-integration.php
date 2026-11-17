@@ -7,6 +7,10 @@ function rs_assert($condition, string $message): void {
 }
 rs_assert(function_exists('WC'), 'WooCommerce is not active');
 wc_load_cart();
+update_option('woocommerce_ship_to_countries', '');
+$zone = WC_Shipping_Zones::get_zone(0);
+rs_assert((bool) $zone->add_shipping_method('flat_rate'), 'Could not configure a real WooCommerce shipping method');
+rs_assert(wc_get_shipping_method_count(true) > 0, 'WooCommerce shipping method not enabled');
 update_option('woocommerce_bacs_settings', ['enabled' => 'yes', 'title' => 'Bank transfer']);
 $gateways = WC()->payment_gateways()->payment_gateways();
 rs_assert(isset($gateways['bacs']), 'Bank transfer gateway is unavailable');
@@ -89,17 +93,62 @@ $wp_query = new WP_Query(['page_id' => $checkoutPage]);
 rs_assert(is_checkout(), 'Checkout query was not initialized');
 $checkoutView = rs_view('woocommerce.checkout-native', ['dataPage' => 'checkout']);
 rs_assert(str_contains($checkoutView, 'rs-native-checkout'), 'Native checkout with variation did not render');
+$savedAddress = ['id' => 'integration-address', 'title' => 'Work', 'name' => 'Real Customer', 'city' => 'Amol', 'province' => 'Mazandaran', 'postal' => '12345', 'address' => 'Test Street'];
+update_user_meta($user->ID, '_rs_saved_addresses', [$savedAddress]);
 $checkout = WC()->checkout();
 ob_start();
 wc_get_template('checkout/form-checkout.php', ['checkout' => $checkout]);
 $html = (string) ob_get_clean();
-foreach (['rs-native-checkout', 'data-rs-checkout-panel="address"', 'data-rs-checkout-panel="review"', 'billing_first_name', 'woocommerce-checkout-review-order', 'woocommerce-process-checkout-nonce', 'place_order', 'rs-checkout-summary-fragment', 'Variable integration product'] as $part) {
+foreach (['rs-native-checkout', 'data-rs-checkout-panel="address"', 'data-rs-checkout-panel="review"', 'billing_first_name', 'woocommerce-checkout-review-order', 'woocommerce-process-checkout-nonce', 'place_order', 'rs-checkout-summary-fragment', 'Variable integration product', 'data-rs-saved-list', 'Test Street', 'rs-payment-option', 'data-rs-coupon-card', 'rs_delivery_day', 'rs_official_invoice', 'rs_gift_wrap', 'order_comments'] as $part) {
     rs_assert(str_contains($html, $part), 'Missing checkout component: ' . $part);
 }
 rs_assert(str_contains($html, 'name="payment_method"'), 'WooCommerce payment gateways not rendered: ' . implode(',', array_keys(WC()->payment_gateways()->get_available_payment_gateways())) . '; review: ' . substr(wp_strip_all_tags($html), -500));
+WC()->customer->set_shipping_country('US');
+WC()->customer->set_shipping_state('CA');
+WC()->customer->set_shipping_city('Los Angeles');
+WC()->customer->set_shipping_postcode('90001');
+WC()->customer->set_shipping_address_1('Test street');
+WC()->cart->calculate_shipping();
+$packages = WC()->shipping()->get_packages();
+rs_assert(!empty($packages[0]['rates']), 'Shipping zone did not calculate any real rate');
+WC()->session->set('chosen_shipping_methods', [array_key_first($packages[0]['rates'])]);
 $fragments = apply_filters('woocommerce_update_order_review_fragments', ['.existing' => 'preserved']);
 rs_assert(isset($fragments['.existing'], $fragments['.rs-checkout-summary-fragment']), 'Checkout fragments were not preserved or updated');
 rs_assert(str_contains($fragments['.rs-checkout-summary-fragment'], 'Integration test product'), 'Updated summary does not contain cart products');
+rs_assert(!str_contains($fragments['.rs-checkout-summary-fragment'], 'پس از انتخاب روش ارسال'), 'Chosen shipping rate missing from summary');
+// Optional gift fee uses the posted checkbox value, including an explicit unchecked value.
+$provider = rs_app()->make(App\Providers\WooCommerceServiceProvider::class);
+WC()->session->set('rs_gift_wrap', false);
+$_POST['post_data'] = 'rs_gift_wrap=0&rs_gift_wrap=1';
+WC()->cart->calculate_totals();
+rs_assert(count(WC()->cart->get_fees()) === 1, 'Gift option did not add the configured WooCommerce fee');
+$_POST['post_data'] = 'rs_gift_wrap=0';
+WC()->cart->calculate_totals();
+rs_assert(count(WC()->cart->get_fees()) === 0 && !WC()->session->get('rs_gift_wrap'), 'Unchecked gift option left a stale fee');
+unset($_POST['post_data']);
+// Delivery preferences are requests, validated against the configured choices.
+wc_clear_notices();
+$_POST['rs_delivery_day'] = '2020-01-01';
+$_POST['rs_delivery_slot'] = 'not-a-configured-slot';
+$provider->validateDeliveryPreference();
+rs_assert(wc_notice_count('error') > 0, 'Invalid delivery preference accepted');
+wc_clear_notices();
+$_POST['rs_delivery_day'] = wp_date('Y-m-d', time() + 86400 * 2);
+$_POST['rs_delivery_slot'] = trim(explode(',', (string) rs_option('shop.delivery_slots', ''))[0]);
+$_POST['rs_official_invoice'] = '1';
+$provider->validateDeliveryPreference();
+rs_assert(wc_notice_count('error') === 0, 'Valid delivery preference rejected');
+$provider->saveCustomOrderMeta($order, []);
+rs_assert($order->get_meta('_rs_delivery_day') === $_POST['rs_delivery_day'] && $order->get_meta('_rs_official_invoice') === 'yes', 'Order preference metadata not saved');
+unset($_POST['rs_delivery_day'], $_POST['rs_delivery_slot'], $_POST['rs_official_invoice']);
+// Render genuine WooCommerce shipping rates and their extension hook.
+$hookCalled = false;
+add_action('woocommerce_after_shipping_rate', static function () use (&$hookCalled) { $hookCalled = true; }, 10, 2);
+$rate = new WC_Shipping_Rate('flat_rate:42', 'Integration shipping', 45000, [], 'flat_rate');
+ob_start();
+wc_get_template('cart/cart-shipping.php', ['package' => ['destination' => ['country' => 'US']], 'package_name' => 'Shipping', 'available_methods' => [$rate->id => $rate], 'show_package_details' => false, 'show_shipping_calculator' => false, 'package_details' => '', 'index' => 0, 'chosen_method' => $rate->id, 'formatted_destination' => 'Address', 'has_calculated_shipping' => true]);
+$shippingHtml = (string) ob_get_clean();
+rs_assert(str_contains($shippingHtml, 'Integration shipping') && str_contains($shippingHtml, 'shipping_method[0]') && $hookCalled, 'Real shipping method or its hook missing');
 $called = [];
 add_action('woocommerce_before_thankyou', static function () use (&$called) { $called[] = 'before'; });
 add_action('woocommerce_thankyou', static function () use (&$called) { $called[] = 'thankyou'; });
