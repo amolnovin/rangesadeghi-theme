@@ -142,6 +142,11 @@ rs_assert($card->is_available(), 'Configured card transfer gateway unavailable')
 $gatewayClasses = apply_filters('woocommerce_payment_gateways', []);
 rs_assert(in_array(App\WooCommerce\Payments\CardTransfer::class, $gatewayClasses, true), 'Card transfer not registered with WooCommerce');
 rs_assert(isset(WC()->payment_gateways()->get_available_payment_gateways()['bacs']), 'Existing enabled payment gateway disappeared');
+$freshGateways = new WC_Payment_Gateways();
+$activeGateways = $freshGateways->get_available_payment_gateways();
+rs_assert(isset($activeGateways['bacs'], $activeGateways['rs_card_transfer']), 'Enabled gateways not all returned by WooCommerce');
+ob_start(); wc_get_template('checkout/payment.php', ['available_gateways' => $activeGateways, 'order_button_text' => 'Place order']); $paymentHtml = (string) ob_get_clean();
+rs_assert(str_contains($paymentHtml, 'value="bacs"') && str_contains($paymentHtml, 'value="rs_card_transfer"'), 'Enabled gateways were not both rendered');
 // Store checkout addresses in the same account list without rewriting billing profile fields.
 $provider = rs_app()->make(App\Providers\WooCommerceServiceProvider::class);
 $billingBefore = get_user_meta($user->ID, 'billing_first_name', true);
