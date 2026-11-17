@@ -1,0 +1,73 @@
+name: Add full WordPress theme 2.2.1 to release
+
+on:
+  push:
+    branches: [arena/6180cb9d-rangesadeghi-theme]
+    paths: [.github/workflows/full-theme-2-2-1.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    if: github.ref == 'refs/heads/arena/6180cb9d-rangesadeghi-theme'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Build and check theme ZIP from the release tag
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse v2.2.1^{commit})" = ef86a99a6499dc2c2e46cc35f3e2c27f03ae4c82
+          git archive --format=zip --prefix=rangesadeghi/ --output="$RUNNER_TEMP/rangesadeghi-wordpress-2.2.1.zip" v2.2.1 -- \
+            app bootstrap config resources assets woocommerce 404.php archive.php comments.php footer.php \
+            front-page.php functions.php header.php home.php index.php page.php rtl.css screenshot.png \
+            search.php single.php style.css styles.css pages.css home.css template-about.php \
+            template-categories.php template-contact.php template-order-tracking.php template-stores.php \
+            theme.json woocommerce.php WORDPRESS.md
+          python3 - <<'PY'
+          import hashlib, os, subprocess, zipfile
+          path = os.path.join(os.environ['RUNNER_TEMP'], 'rangesadeghi-wordpress-2.2.1.zip')
+          required = ['style.css', 'index.php', 'functions.php', 'styles.css', 'pages.css', 'home.css',
+                      'bootstrap/app.php', 'bootstrap/autoload.php', 'config/app.php', 'config/defaults.php',
+                      'app/Support/ProductPresenter.php', 'app/Updater/PatchManager.php',
+                      'app/Providers/AdminServiceProvider.php', 'resources/js/theme.js',
+                      'resources/views/layouts/app.blade.php', 'resources/views/woocommerce/cart.blade.php',
+                      'resources/views/woocommerce/checkout-native.blade.php',
+                      'resources/views/woocommerce/my-account.blade.php', 'woocommerce/checkout/form-checkout.php',
+                      'assets/fonts/vazirmatn-regular.woff2', 'screenshot.png']
+          with zipfile.ZipFile(path) as archive:
+              names = set(archive.namelist())
+              assert all(name.startswith('rangesadeghi/') for name in names)
+              assert all('rangesadeghi/' + name in names for name in required)
+              assert archive.testzip() is None
+              assert b'Version: 2.2.1' in archive.read('rangesadeghi/style.css')
+              for name in required:
+                  committed = subprocess.check_output(['git', 'show', 'v2.2.1:' + name])
+                  assert archive.read('rangesadeghi/' + name) == committed, name
+          print('SHA-256:', hashlib.sha256(open(path, 'rb').read()).hexdigest())
+          PY
+      - name: Upload full theme without replacing patch assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(gh release view v2.2.1 --json isDraft --jq .isDraft)" = false
+          test "$(gh release view v2.2.1 --json assets --jq '[.assets[] | select(.name == "rangesadeghi-wordpress-2.2.1.zip")] | length')" = 0
+          gh release upload v2.2.1 "$RUNNER_TEMP/rangesadeghi-wordpress-2.2.1.zip"
+          test "$(gh release view v2.2.1 --json assets --jq '[.assets[] | select(.name == "rangesadeghi-wordpress-2.2.1.zip" and .state == "uploaded")] | length')" = 1
+          gh release view v2.2.1 --json body --jq .body > "$RUNNER_TEMP/release-notes.md"
+          python3 - <<'PY'
+          import os
+          path = os.path.join(os.environ['RUNNER_TEMP'], 'release-notes.md')
+          with open(path, encoding='utf-8') as f:
+              body = f.read()
+          body = body.replace('بسته‌های ZIP و JSON پچ هستند، نه فایل نصب کامل قالب.', 'فایل‌های rangesadeghi-patch-2.2.1.zip و rangesadeghi-patch-2.2.1.json پچ هستند، نه فایل نصب کامل قالب.')
+          body = body.replace('از نصب ZIP به‌عنوان پوسته وردپرس استفاده نکنید.', 'از نصب ZIP پچ به‌عنوان پوسته وردپرس استفاده نکنید.')
+          body += '\n## فایل نصب کامل قالب\n\nفایل `rangesadeghi-wordpress-2.2.1.zip` نسخه کامل قابل نصب در نمایش ← پوسته‌ها ← افزودن پوسته در وردپرس است. برای ارتقای سایت موجود ابتدا از قالب و پایگاه داده پشتیبان بگیرید و در محیط آزمایشی بررسی کنید.\n'
+          with open(path, 'w', encoding='utf-8') as f:
+              f.write(body)
+          PY
+          gh release edit v2.2.1 --notes-file "$RUNNER_TEMP/release-notes.md"
