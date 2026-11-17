@@ -30,6 +30,7 @@ final class WooCommerceServiceProvider extends ServiceProvider
 
         // ذخیره متای اختصاصی تسویه حساب روی سفارش ووکامرس (سازگار با HPOS)
         add_action('woocommerce_checkout_create_order', [$this, 'saveCustomOrderMeta'], 10, 2);
+        add_action('woocommerce_checkout_process', [$this, 'validateDeliveryPreference']);
 
         // Keep the sidebar in sync with WooCommerce's checkout AJAX updates.
         add_filter('woocommerce_update_order_review_fragments', [$this, 'checkoutSummaryFragment']);
@@ -217,8 +218,10 @@ final class WooCommerceServiceProvider extends ServiceProvider
         if (isset($_POST['post_data'])) {
             parse_str((string) wp_unslash($_POST['post_data']), $parsed);
             $enabled = !empty($parsed['rs_gift_wrap']);
+            if (WC()->session) WC()->session->set('rs_gift_wrap', $enabled);
         } elseif (isset($_POST['rs_gift_wrap'])) {
             $enabled = !empty($_POST['rs_gift_wrap']);
+            if (WC()->session) WC()->session->set('rs_gift_wrap', $enabled);
         }
 
         if ($enabled) {
@@ -230,6 +233,19 @@ final class WooCommerceServiceProvider extends ServiceProvider
         }
     }
 
+    public function validateDeliveryPreference(): void
+    {
+        if (!WC()->cart || !WC()->cart->needs_shipping() || !rs_option('shop.delivery_slots_enabled', true)) return;
+        $day = sanitize_text_field((string) wp_unslash($_POST['rs_delivery_day'] ?? ''));
+        $slot = sanitize_text_field((string) wp_unslash($_POST['rs_delivery_slot'] ?? ''));
+        if ($day === '' && $slot === '') return;
+        $slots = array_filter(array_map('trim', explode(',', (string) rs_option('shop.delivery_slots', ''))));
+        $date = \DateTimeImmutable::createFromFormat('!Y-m-d', $day);
+        if (!$date || $date->format('Y-m-d') !== $day || $day < wp_date('Y-m-d') || !in_array($slot, $slots, true)) {
+            wc_add_notice('لطفاً روز و بازه ترجیحی معتبر انتخاب کنید یا هر دو را خالی بگذارید.', 'error');
+        }
+    }
+
     /**
      * @param array<string, mixed> $data
      */
@@ -237,15 +253,15 @@ final class WooCommerceServiceProvider extends ServiceProvider
     {
         $day = sanitize_text_field((string) wp_unslash($_POST['rs_delivery_day'] ?? ''));
         $slot = sanitize_text_field((string) wp_unslash($_POST['rs_delivery_slot'] ?? ''));
-        $gift = !empty($_POST['rs_gift_wrap']) ? 'yes' : 'no';
-        $invoice = !empty($_POST['rs_official_invoice']) ? 'yes' : 'no';
+        $gift = rs_option('shop.gift_wrap_enabled', true) && !empty($_POST['rs_gift_wrap']) ? 'yes' : 'no';
+        $invoice = rs_option('shop.official_invoice_enabled', true) && !empty($_POST['rs_official_invoice']) ? 'yes' : 'no';
         $rcName = sanitize_text_field((string) wp_unslash($_POST['rs_receiver_name'] ?? ''));
         $rcPhone = Persian::toEn(sanitize_text_field((string) wp_unslash($_POST['rs_receiver_phone'] ?? '')));
 
-        if ($day !== '') {
+        if (rs_option('shop.delivery_slots_enabled', true) && WC()->cart && WC()->cart->needs_shipping() && $day !== '') {
             $order->update_meta_data('_rs_delivery_day', $day);
         }
-        if ($slot !== '') {
+        if (rs_option('shop.delivery_slots_enabled', true) && WC()->cart && WC()->cart->needs_shipping() && $slot !== '') {
             $order->update_meta_data('_rs_delivery_slot', $slot);
         }
         $order->update_meta_data('_rs_gift_wrap', $gift);

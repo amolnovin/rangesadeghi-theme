@@ -134,3 +134,61 @@ body.admin-bar .main-header.is-sticky {
 .rs-order-result .co-success-grid li { background: #faf9f8; border: 1px solid #f0ede9; border-radius: 12px; padding: 12px 14px; text-align: start; gap: 4px; }
 .rs-order-result .co-success-grid li span { font-size: 11px; color: #999; }
 .rs-order-result .co-success-grid li strong { font-size: 13px; }
+
+/* Checkout: reference card UI around the real WooCommerce fields and fragments. */
+.rs-native-checkout #customer_details { display: grid; gap: 14px; }
+.rs-native-checkout .rs-fields-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 4px 14px; }
+.rs-native-checkout .rs-fields-grid .form-row { width: auto; float: none; clear: none; min-width: 0; }
+.rs-native-checkout .rs-fields-grid .form-row-wide { grid-column: 1/-1; }
+.rs-native-checkout .form-row .woocommerce-input-wrapper { display: block; width: 100%; }
+.rs-native-checkout .form-row .required { color: var(--accent); }
+.rs-native-checkout .form-row textarea { min-height: 90px; }
+.rs-native-checkout .select2-container { max-width: 100%; }
+.rs-native-checkout .co-address-form h3 { font-size: 14px; }
+.rs-native-checkout .co-address-list { margin-bottom: 12px; }
+.rs-native-checkout .rs-saved-address { width: 100%; font: inherit; text-align: start; background: #fff; color: inherit; }
+.rs-native-checkout .rs-address-hint { color: #8a8a8a; font-size: 12px; line-height: 1.9; }
+.rs-native-checkout .rs-recipient-card { margin-top: 14px; }
+.rs-native-checkout #ship-to-different-address { margin: 0; font-size: 13px; }
+.rs-native-checkout #ship-to-different-address .co-check { display: flex; }
+.rs-native-checkout [data-rs-shipping-extra], .rs-native-checkout [data-rs-payment-extra] { display: grid; gap: 14px; }
+.rs-native-checkout .rs-review-heading { margin-bottom: 0; }
+.rs-native-checkout #order_review { display: flex; flex-direction: column; gap: 14px; }
+.rs-native-checkout #payment { order: -1; }
+.rs-native-checkout .woocommerce-checkout-review-order-table { background: #fff; border-radius: 18px; box-shadow: var(--card-shadow); overflow: hidden; }
+.rs-native-checkout .woocommerce-checkout-review-order-table th,
+.rs-native-checkout .woocommerce-checkout-review-order-table td { padding: 14px 18px; }
+.rs-native-checkout .woocommerce-checkout-review-order-table .order-total { color: var(--accent); font-weight: 700; }
+.rs-native-checkout.rs-steps-enabled[data-rs-step="shipping"] .woocommerce-checkout-review-order-table tr.shipping,
+.rs-native-checkout.rs-steps-enabled[data-rs-step="shipping"] .woocommerce-checkout-review-order-table tr.shipping > th,
+.rs-native-checkout.rs-steps-enabled[data-rs-step="shipping"] .woocommerce-checkout-review-order-table tr.shipping > td { display: block; width: 100%; }
+.rs-native-checkout.rs-steps-enabled[data-rs-step="shipping"] .woocommerce-checkout-review-order-table tr.shipping > th { border-bottom: 0; padding-bottom: 0; }
+.rs-native-checkout.rs-steps-enabled[data-rs-step="payment"] .woocommerce-checkout-review-order-table tr.shipping { display: none; }
+.rs-native-checkout .woocommerce-shipping-methods li { display: flex; align-items: center; gap: 12px; min-height: 68px; transition: border-color .2s, background .2s; }
+.rs-native-checkout .woocommerce-shipping-methods li:has(input:checked),
+.rs-native-checkout .woocommerce-shipping-methods li:has(input[type="hidden"]) { border-color: var(--accent); background: #fffafa; }
+.rs-native-checkout .woocommerce-shipping-methods input[type="radio"] { accent-color: var(--accent); width: 20px; height: 20px; flex: none; }
+.rs-native-checkout .woocommerce-shipping-methods label { flex: 1; margin: 0; }
+.rs-native-checkout #payment ul { display: grid; gap: 10px; margin: 0; }
+.rs-native-checkout #payment li.rs-payment-option { padding: 0; border: 1.6px solid #ebe8e5; border-radius: 14px; margin: 0; overflow: hidden; }
+.rs-native-checkout #payment li.rs-payment-option:has(input:checked) { border-color: var(--accent); background: #fffafa; }
+.rs-native-checkout .rs-payment-option > input.input-radio { position: absolute; opacity: 0; }
+.rs-native-checkout .rs-payment-label { display: flex; align-items: center; gap: 14px; padding: 15px 18px; min-height: 72px; cursor: pointer; margin: 0; }
+.rs-native-checkout .rs-payment-option > input:checked + label .co-radio { border-color: var(--accent); }
+.rs-native-checkout .rs-payment-option > input:checked + label .co-radio:after { transform: scale(1); }
+.rs-native-checkout .rs-payment-option > input:checked + label .co-option-icon { background: var(--accent); color: #fff; }
+.rs-native-checkout .rs-payment-option > input:focus-visible + label { outline: 3px solid rgba(223,54,57,.35); outline-offset: -3px; }
+.rs-native-checkout .payment_box { padding: 0 18px 16px; font-size: 12px; line-height: 1.9; }
+.rs-native-checkout .rs-gateway-icon img { max-height: 38px; width: auto; max-width: 100px; }
+.rs-native-checkout .place-order { padding-top: 12px; }
+.rs-native-checkout #place_order { min-height: 50px; background: var(--accent); color: #fff; border: 0; border-radius: 12px; font: inherit; font-weight: 700; cursor: pointer; }
+.rs-native-checkout .rs-checkout-controls .btn { min-height: 50px; }
+.rs-native-checkout .rs-shipping-message { background: #fff; padding: 16px; border-radius: 14px; }
+.rs-native-checkout .co-shipment-thumbs { margin-bottom: 18px; }
+.rs-native-checkout .rs-coupon-card .coupon input { width: auto; }
+.rs-custom-checkout-coupon .woocommerce-form-coupon-toggle, .rs-custom-checkout-coupon form.checkout_coupon { display: none !important; }
+@media (max-width: 768px) {
+  .rs-native-checkout .rs-fields-grid { grid-template-columns: minmax(0,1fr); }
+  .rs-native-checkout .rs-fields-grid .form-row-wide { grid-column: auto; }
+  .rs-native-checkout .rs-checkout-controls .btn { min-width: 0; flex: 1; }
+}
