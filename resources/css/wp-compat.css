@@ -196,3 +196,16 @@ body.admin-bar .main-header.is-sticky {
 .rs-native-checkout #customer_details > .col-1, .rs-native-checkout #customer_details > .col-2 { width: 100%; float: none; }
 .rs-native-checkout .woocommerce-shipping-methods li:has(input:checked) .rs-shipping-icon,
 .rs-native-checkout .woocommerce-shipping-methods li:has(input[type="hidden"]) .rs-shipping-icon { color: #fff; background: var(--accent); }
+
+/* Checkout account-address selection and recipient details. */
+.rs-native-checkout .rs-saved-address { cursor: pointer; }
+.rs-native-checkout .rs-saved-address:focus-within { outline: 3px solid rgba(223,54,57,.25); outline-offset: 2px; }
+.rs-native-checkout .rs-billing-details > summary { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; font-weight: 700; }
+.rs-native-checkout .rs-billing-details > summary svg { width: 18px; height: 18px; color: var(--accent); }
+.rs-native-checkout .rs-billing-details:not([open]) { padding: 14px 18px; }
+.rs-native-checkout .rs-billing-details[open] > summary { margin-bottom: 14px; }
+.rs-native-checkout .rs-shipping-details { margin-top: 12px; color: #666; font-size: 12px; }
+.rs-native-checkout .rs-shipping-details > summary { cursor: pointer; }
+.rs-native-checkout .rs-recipient-card .co-receiver { margin-top: 16px; }
+.rs-native-checkout .co-inline-error { color: var(--accent); }
+.rs-native-checkout .co-form-actions .btn:disabled { opacity: .6; cursor: wait; }

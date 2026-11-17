@@ -31,6 +31,7 @@ final class WooCommerceServiceProvider extends ServiceProvider
         // ذخیره متای اختصاصی تسویه حساب روی سفارش ووکامرس (سازگار با HPOS)
         add_action('woocommerce_checkout_create_order', [$this, 'saveCustomOrderMeta'], 10, 2);
         add_action('woocommerce_checkout_process', [$this, 'validateDeliveryPreference']);
+        add_action('woocommerce_checkout_process', [$this, 'validateCheckoutRecipient']);
 
         // Keep the sidebar in sync with WooCommerce's checkout AJAX updates.
         add_filter('woocommerce_update_order_review_fragments', [$this, 'checkoutSummaryFragment']);
@@ -56,6 +57,7 @@ final class WooCommerceServiceProvider extends ServiceProvider
 
         $authAjax = [
             'rs_address_save' => [$this, 'ajaxAddressSave'],
+            'rs_checkout_address_save' => [$this, 'ajaxCheckoutAddressSave'],
             'rs_address_delete' => [$this, 'ajaxAddressDelete'],
             'rs_profile_save' => [$this, 'ajaxProfileSave'],
             'rs_order_cancel' => [$this, 'ajaxOrderCancel'],
@@ -246,6 +248,16 @@ final class WooCommerceServiceProvider extends ServiceProvider
         }
     }
 
+    public function validateCheckoutRecipient(): void
+    {
+        if (empty($_POST['rs_recipient_present']) || !WC()->cart || !WC()->cart->needs_shipping() || !empty($_POST['rs_receiver_self'])) return;
+        $name = sanitize_text_field((string) wp_unslash($_POST['rs_receiver_name'] ?? ''));
+        $phone = Persian::toEn(sanitize_text_field((string) wp_unslash($_POST['rs_receiver_phone'] ?? '')));
+        if ($name === '' || strlen(preg_replace('/\D+/', '', $phone)) < 7 || !\WC_Validation::is_phone($phone)) {
+            wc_add_notice('نام و شماره تماس معتبر گیرنده را وارد کنید.', 'error');
+        }
+    }
+
     /**
      * @param array<string, mixed> $data
      */
@@ -267,12 +279,26 @@ final class WooCommerceServiceProvider extends ServiceProvider
         $order->update_meta_data('_rs_gift_wrap', $gift);
         $order->update_meta_data('_rs_official_invoice', $invoice);
 
-        if ($rcName !== '') {
-            $order->update_meta_data('_rs_receiver_name', $rcName);
-            $order->set_shipping_first_name($rcName);
-        }
-        if ($rcPhone !== '') {
-            $order->update_meta_data('_rs_receiver_phone', $rcPhone);
+        // The recipient choice is independent of billing and of WooCommerce's shipping-address toggle.
+        $recipientSelf = !empty($_POST['rs_recipient_present']) && !empty($_POST['rs_receiver_self']);
+        if ($recipientSelf) {
+            if (WC()->cart && WC()->cart->needs_shipping()) {
+                $order->set_shipping_first_name($order->get_billing_first_name());
+                $order->set_shipping_last_name($order->get_billing_last_name());
+                if (is_callable([$order, 'set_shipping_phone'])) $order->set_shipping_phone($order->get_billing_phone());
+            }
+            $order->delete_meta_data('_rs_receiver_name');
+            $order->delete_meta_data('_rs_receiver_phone');
+        } else {
+            if ($rcName !== '') {
+                $order->update_meta_data('_rs_receiver_name', $rcName);
+                $order->set_shipping_first_name($rcName);
+                if (!empty($_POST['rs_recipient_present'])) $order->set_shipping_last_name('');
+            }
+            if ($rcPhone !== '') {
+                $order->update_meta_data('_rs_receiver_phone', $rcPhone);
+                if (!empty($_POST['rs_recipient_present']) && is_callable([$order, 'set_shipping_phone'])) $order->set_shipping_phone($rcPhone);
+            }
         }
     }
 
@@ -574,6 +600,38 @@ final class WooCommerceServiceProvider extends ServiceProvider
             'page' => $data['page'],
             'total_pages' => $data['total_pages'],
         ]);
+    }
+
+    /** Store an address in the same account list without changing the customer's billing profile. */
+    public function saveCheckoutAddress(int $userId, array $input): array|\WP_Error
+    {
+        if ($userId <= 0) return new \WP_Error('login_required', 'برای ذخیره آدرس وارد حساب کاربری شوید.');
+        $value = static fn(string $key): string => sanitize_text_field((string) ($input[$key] ?? ''));
+        $title = $value('title');
+        $name = $value('name');
+        $phone = Persian::toEn($value('phone'));
+        $province = $value('province');
+        $city = $value('city');
+        $postal = Persian::toEn($value('postal'));
+        $address = sanitize_textarea_field((string) ($input['address'] ?? ''));
+        if (mb_strlen($title) < 2 || $name === '' || strlen(preg_replace('/\D+/', '', $phone)) < 7 || !\WC_Validation::is_phone($phone) || $province === '' || mb_strlen($city) < 2 || mb_strlen($address) < 8 || ($postal !== '' && !preg_match('/^\d+$/', $postal))) {
+            return new \WP_Error('invalid_address', 'عنوان، نام، شماره تماس معتبر، استان، شهر و نشانی کامل را وارد کنید.');
+        }
+        $saved = get_user_meta($userId, '_rs_saved_addresses', true);
+        $saved = is_array($saved) ? array_values($saved) : [];
+        if (count($saved) >= 5) return new \WP_Error('address_limit', 'حداکثر ۵ آدرس ذخیره می‌شود؛ ابتدا یکی را در حساب کاربری حذف کنید.');
+        $newItem = ['id' => 'addr-' . wp_generate_uuid4(), 'title' => $title, 'name' => $name, 'phone' => $phone, 'province' => $province, 'city' => $city, 'postal' => $postal, 'address' => $address, 'isDefault' => $saved === []];
+        $saved[] = $newItem;
+        update_user_meta($userId, '_rs_saved_addresses', $saved);
+        return $newItem;
+    }
+
+    public function ajaxCheckoutAddressSave(): void
+    {
+        check_ajax_referer('rs_public_nonce', 'nonce');
+        $result = $this->saveCheckoutAddress(get_current_user_id(), wp_unslash($_POST));
+        if (is_wp_error($result)) wp_send_json_error(['message' => $result->get_error_message()]);
+        wp_send_json_success(['address' => $result, 'message' => 'آدرس جدید ثبت و انتخاب شد.']);
     }
 
     public function ajaxAddressSave(): void

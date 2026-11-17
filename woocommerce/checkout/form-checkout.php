@@ -23,7 +23,7 @@ if (!$checkout->is_registration_enabled() && $checkout->is_registration_required
             <?php if ($checkout->get_checkout_fields()) : ?>
                 <?php do_action('woocommerce_checkout_before_customer_details'); ?>
                 <div id="customer_details">
-                    <div class="co-card col-1"><header class="co-card-head"><span class="co-card-num">۱</span><div class="co-card-title"><h1>آدرس تحویل سفارش</h1><p>آدرس ذخیره‌شده را انتخاب کنید یا مشخصات خود را وارد کنید.</p></div><?php if (is_user_logged_in()) : ?><a class="text-link co-head-link" href="<?php echo esc_url(wc_get_account_endpoint_url('edit-address')); ?>">مدیریت آدرس‌ها</a><?php endif; ?></header>
+                    <div class="co-card col-1"><header class="co-card-head"><span class="co-card-num">۱</span><div class="co-card-title"><h1>آدرس تحویل سفارش</h1><p>یکی از آدرس‌های ذخیره‌شده را انتخاب کنید یا آدرس جدید ثبت کنید.</p></div><?php if (is_user_logged_in()) : ?><a class="text-link co-head-link" href="<?php echo esc_url(wc_get_page_permalink('myaccount') . '#addresses'); ?>">مدیریت آدرس‌ها</a><?php endif; ?></header>
                         <?php do_action('woocommerce_checkout_billing'); ?>
                     </div>
                     <div class="col-2"><?php do_action('woocommerce_checkout_shipping'); ?></div>

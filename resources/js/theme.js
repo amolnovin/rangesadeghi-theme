@@ -657,30 +657,135 @@
     const keys = ['address', 'shipping', 'payment'];
     let current = 0;
     form.classList.add('rs-steps-enabled');
+    const picker = $('[data-rs-address-picker]', form);
     const savedList = $('[data-rs-saved-list]', form);
-    if (savedList) savedList.hidden = false;
-    $$('.rs-saved-address', form).forEach(button => button.addEventListener('click', () => {
-      let saved;
-      try { saved = JSON.parse(button.dataset.address); } catch (_) { return; }
-      const values = { billing_first_name: saved.name, billing_last_name: '', billing_phone: saved.phone, billing_city: saved.city, billing_postcode: saved.postal, billing_address_1: saved.address, billing_address_2: '' };
-      Object.entries(values).forEach(([id, value]) => {
-        const field = document.getElementById(id);
-        if (!field || !form.contains(field)) return;
-        field.value = value || '';
-        field.dispatchEvent(new Event('input', { bubbles: true }));
-        field.dispatchEvent(new Event('change', { bubbles: true }));
+    const billingDetails = $('[data-rs-billing-details]', form);
+    const newPanel = $('[data-rs-new-address]', form);
+    const addButton = $('[data-rs-add-address]', form);
+    const newError = $('[data-rs-new-error]', form);
+    let applyingAddress = false;
+    let selectedAddress = null;
+    const changeField = (field, value) => {
+      if (!field) return;
+      if (field.tagName === 'SELECT') {
+        const target = String(value || '').trim();
+        const normalize = text => text.replace(/ي/g, 'ی').replace(/ك/g, 'ک').trim();
+        const option = Array.from(field.options).find(o => o.value === target || normalize(o.textContent) === normalize(target));
+        field.value = option ? option.value : '';
+      } else field.value = value || '';
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+      field.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    const applyAddress = (saved, targetShipping = false) => {
+      if (!saved) return;
+      applyingAddress = true;
+      const prefixes = targetShipping ? ['shipping_'] : ['billing_'];
+      if (!targetShipping && $('#ship-to-different-address-checkbox', form)?.checked) prefixes.push('shipping_');
+      prefixes.forEach(prefix => {
+        const values = { city: saved.city, postcode: toEn(saved.postal || ''), address_1: saved.address, address_2: saved.address2 || '', state: saved.province };
+        Object.entries(values).forEach(([key, value]) => changeField(document.getElementById(prefix + key), value));
       });
-      const state = $('#billing_state', form);
-      if (state) {
-        const target = String(saved.province || '').trim();
-        if (state.tagName === 'SELECT') {
-          const option = Array.from(state.options).find(o => o.value === target || o.textContent.trim() === target);
-          state.value = option ? option.value : '';
-        } else state.value = target;
-        state.dispatchEvent(new Event('change', { bubbles: true }));
+      applyingAddress = false;
+    };
+    const selectAddress = label => {
+      let saved;
+      try { saved = JSON.parse(label.dataset.address); } catch (_) { return; }
+      selectedAddress = saved;
+      $$('.rs-saved-address', savedList).forEach(el => {
+        const selected = el === label;
+        el.classList.toggle('is-selected', selected);
+        const radio = $('input[type="radio"]', el);
+        if (radio) radio.checked = selected;
+      });
+      applyAddress(saved);
+      if (billingDetails) {
+        billingDetails.open = true;
+        const missing = $$('.validate-required input, .validate-required select, .validate-required textarea', billingDetails)
+          .some(field => field.offsetParent !== null && !field.disabled && (field.type === 'checkbox' ? !field.checked : !field.value.trim()));
+        billingDetails.open = missing;
       }
-      $$('.rs-saved-address', form).forEach(el => el.classList.toggle('is-selected', el === button));
-    }));
+    };
+    if (picker && savedList) {
+      picker.hidden = false;
+      savedList.addEventListener('change', event => {
+        const label = event.target.closest('.rs-saved-address');
+        if (label) selectAddress(label);
+      });
+      const cards = $$('.rs-saved-address', savedList);
+      // Prefer a matching WooCommerce address; otherwise use the account's default.
+      const currentAddress = $('#billing_address_1', form)?.value.trim();
+      const initial = picker.dataset.rsSubmitted === '1' ? cards.find(el => $('input', el)?.value === picker.dataset.rsSelected) : (cards.find(el => { try { return currentAddress && JSON.parse(el.dataset.address).address === currentAddress; } catch (_) { return false; } }) || cards.find(el => { try { return JSON.parse(el.dataset.address).isDefault; } catch (_) { return false; } }) || cards[0]);
+      if (initial) selectAddress(initial);
+      form.addEventListener('input', event => {
+        if (applyingAddress || !selectedAddress || !/^(billing|shipping)_(state|city|postcode|address_1|address_2|country)$/.test(event.target.id)) return;
+        selectedAddress = null;
+        $$('.rs-saved-address', savedList).forEach(el => { el.classList.remove('is-selected'); const radio = $('input', el); if (radio) radio.checked = false; });
+      });
+      $('#ship-to-different-address-checkbox', form)?.addEventListener('change', event => {
+        if (event.target.checked && selectedAddress) applyAddress(selectedAddress, true);
+      });
+      const toggleNew = open => {
+        if (!newPanel || !addButton) return;
+        newPanel.hidden = !open;
+        addButton.hidden = open;
+        addButton.setAttribute('aria-expanded', String(open));
+        if (newError) { newError.hidden = true; newError.textContent = ''; }
+        if (open) $('[data-rs-new="title"]', newPanel)?.focus();
+      };
+      addButton?.addEventListener('click', () => toggleNew(true));
+      $('[data-rs-cancel-address]', form)?.addEventListener('click', () => toggleNew(false));
+      const saveButton = $('[data-rs-save-address]', form);
+      const saveNew = async () => {
+        if (!newPanel || !saveButton || !newError) return;
+        const values = Object.fromEntries($$('[data-rs-new]', newPanel).map(el => [el.dataset.rsNew, el.value.trim()]));
+        const invalid = ['title', 'name', 'phone', 'province', 'city', 'address'].find(key => !values[key]);
+        if (invalid) { newError.textContent = 'فیلدهای ضروری آدرس را تکمیل کنید.'; newError.hidden = false; $(`[data-rs-new="${invalid}"]`, newPanel)?.focus(); return; }
+        saveButton.disabled = true; newError.hidden = true;
+        try {
+          const response = await wpAjax('rs_checkout_address_save', values);
+          if (!response.success || !response.data?.address) throw new Error(response.data?.message || 'ثبت آدرس ممکن نشد.');
+          const item = response.data.address;
+          const label = document.createElement('label');
+          label.className = 'co-address rs-saved-address'; label.dataset.address = JSON.stringify(item);
+          const radio = document.createElement('input'); radio.type = 'radio'; radio.name = 'rs_saved_address'; radio.value = item.id;
+          const marker = document.createElement('span'); marker.className = 'co-radio'; marker.setAttribute('aria-hidden', 'true');
+          const body = document.createElement('span'); body.className = 'co-address-body';
+          const title = document.createElement('b'); title.textContent = item.title;
+          if (item.isDefault) { const badge = document.createElement('span'); badge.className = 'default-chip'; badge.textContent = 'پیش‌فرض'; title.appendChild(badge); }
+          const line = document.createElement('span'); line.className = 'co-address-text'; line.textContent = [item.province, item.city, item.address].filter(Boolean).join('، ');
+          const meta = document.createElement('span'); meta.className = 'co-address-meta'; meta.textContent = [item.name, toFa(item.phone), item.postal ? 'کد پستی ' + toFa(item.postal) : ''].filter(Boolean).join(' — ');
+          body.append(title, line, meta); label.append(radio, marker, body); savedList.appendChild(label);
+          const empty = $('[data-rs-address-empty]', picker); if (empty) empty.hidden = true;
+          selectAddress(label); toggleNew(false);
+          $$('[data-rs-new]', newPanel).forEach(el => { el.value = ''; });
+          showToast(response.data.message || 'آدرس ثبت شد', 'i-check');
+        } catch (error) { newError.textContent = error.message || 'ثبت آدرس ممکن نشد.'; newError.hidden = false; }
+        finally { saveButton.disabled = false; }
+      };
+      saveButton?.addEventListener('click', saveNew);
+      newPanel?.addEventListener('keydown', event => { if (event.key === 'Enter' && event.target.tagName !== 'TEXTAREA') { event.preventDefault(); saveNew(); } });
+    }
+    const self = $('#rs-receiver-self', form), receiverFields = $('[data-rs-receiver-fields]', form), selfInfo = $('[data-rs-self-info]', form);
+    const recipientInvalid = () => {
+      if (!self || self.checked) return null;
+      const name = $('#rs-receiver-name', form), phone = $('#rs-receiver-phone', form);
+      if (!name?.value.trim()) return name;
+      const value = toEn(phone?.value || '').trim();
+      if (!phone || value.replace(/\D/g, '').length < 7 || /[^\s#0-9_+\/().-]/.test(value)) return phone;
+      return null;
+    };
+    const syncRecipient = () => {
+      if (receiverFields && self) receiverFields.hidden = self.checked;
+      if (selfInfo) {
+        const name = [$('#billing_first_name', form)?.value, $('#billing_last_name', form)?.value].filter(Boolean).join(' ');
+        const phone = $('#billing_phone', form)?.value;
+        const text = [name, phone ? toFa(phone) : ''].filter(Boolean).join(' — ');
+        selfInfo.textContent = text ? `(${text})` : '';
+      }
+    };
+    self?.addEventListener('change', () => { syncRecipient(); if (!self.checked) $('#rs-receiver-name', form)?.focus(); });
+    form.addEventListener('input', syncRecipient);
+    syncRecipient();
     const syncShippingMessage = () => {
       $$('.woocommerce-shipping-methods li', form).forEach(item => {
         if (item.querySelector('.rs-shipping-icon')) return;
@@ -699,7 +804,8 @@
       const different = $('#ship-to-different-address-checkbox', form)?.checked;
       const prefix = different ? 'shipping_' : 'billing_';
       const val = id => { const el = document.getElementById(id); return el && el.tagName === 'SELECT' ? (el.selectedOptions[0]?.textContent || '') : (el?.value || ''); };
-      const addressText = ['first_name', 'last_name', 'state', 'city', 'address_1', 'address_2', 'postcode'].map(k => val(prefix + k).trim()).filter(Boolean).join('، ');
+      const recipient = self ? (self.checked ? [val('billing_first_name'), val('billing_last_name')].filter(Boolean).join(' ') : ($('#rs-receiver-name', form)?.value || '')) : [val(prefix + 'first_name'), val(prefix + 'last_name')].filter(Boolean).join(' ');
+      const addressText = [recipient, ...['state', 'city', 'address_1', 'address_2', 'postcode'].map(k => val(prefix + k).trim())].filter(Boolean).join('، ');
       const ship = $$('input[name^="shipping_method"]', form).filter(el => el.type === 'hidden' || el.checked).map(el => $$('label', form).find(label => label.htmlFor === el.id)?.textContent.trim()).filter(Boolean).join('، ');
       const pay = $('input[name="payment_method"]:checked', form);
       const label = pay && $$('label', form).find(label => label.htmlFor === pay.id);
@@ -736,9 +842,18 @@
     };
     next.addEventListener('click', () => {
       if (current === 0) {
+        const wasClosed = billingDetails && !billingDetails.open;
+        const shippingDetails = $('[data-rs-shipping-details]', form);
+        const shippingWasClosed = shippingDetails && !shippingDetails.open;
+        if (billingDetails) billingDetails.open = true;
+        if (shippingDetails && $('#ship-to-different-address-checkbox', form)?.checked) shippingDetails.open = true;
         const missing = $$('.validate-required input, .validate-required select, .validate-required textarea', address)
           .find(field => field.offsetParent !== null && !field.disabled && (field.type === 'checkbox' ? !field.checked : !field.value.trim()));
         if (missing) { missing.focus(); showToast('لطفاً فیلدهای ضروری نشانی را تکمیل کنید.', 'i-info'); return; }
+        if (wasClosed) billingDetails.open = false;
+        if (shippingWasClosed) shippingDetails.open = false;
+        const missingReceiver = recipientInvalid();
+        if (missingReceiver) { missingReceiver.focus(); showToast('نام و شماره تماس معتبر گیرنده را وارد کنید.', 'i-info'); return; }
       }
       if (current === 1) {
         const day = $('#rs_delivery_day', form), slot = $('#rs_delivery_slot', form);
@@ -761,7 +876,9 @@
       window.jQuery(document.body).on('updated_checkout', () => { syncShippingMessage(); updateReview(); });
       window.jQuery(document.body).on('checkout_error', () => {
         const invalid = $('.woocommerce-invalid', address);
-        if (invalid) { show(0); invalid.querySelector('input,select,textarea')?.focus(); return; }
+        if (invalid) { show(0); if (billingDetails && invalid.closest('[data-rs-billing-details]')) billingDetails.open = true; const shippingDetails = $('[data-rs-shipping-details]', form); if (shippingDetails && invalid.closest('[data-rs-shipping-details]')) shippingDetails.open = true; invalid.querySelector('input,select,textarea')?.focus(); return; }
+        const badReceiver = recipientInvalid();
+        if (badReceiver) { show(0); badReceiver.focus(); return; }
         const day = $('#rs_delivery_day', form), slot = $('#rs_delivery_slot', form);
         if (day && slot && ((!!day.value !== !!slot.value) || (day.value && day.min && day.value < day.min))) { show(1); day.focus(); }
 

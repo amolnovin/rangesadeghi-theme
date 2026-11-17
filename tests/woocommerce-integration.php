@@ -99,7 +99,7 @@ $checkout = WC()->checkout();
 ob_start();
 wc_get_template('checkout/form-checkout.php', ['checkout' => $checkout]);
 $html = (string) ob_get_clean();
-foreach (['rs-native-checkout', 'data-rs-checkout-panel="address"', 'data-rs-checkout-panel="review"', 'billing_first_name', 'woocommerce-checkout-review-order', 'woocommerce-process-checkout-nonce', 'place_order', 'rs-checkout-summary-fragment', 'Variable integration product', 'data-rs-saved-list', 'Test Street', 'rs-payment-option', 'data-rs-coupon-card', 'rs_delivery_day', 'rs_official_invoice', 'rs_gift_wrap', 'order_comments'] as $part) {
+foreach (['rs-native-checkout', 'data-rs-checkout-panel="address"', 'data-rs-checkout-panel="review"', 'billing_first_name', 'woocommerce-checkout-review-order', 'woocommerce-process-checkout-nonce', 'place_order', 'rs-checkout-summary-fragment', 'Variable integration product', 'data-rs-saved-list', 'Test Street', 'rs-payment-option', 'data-rs-coupon-card', 'rs_delivery_day', 'rs_official_invoice', 'rs_gift_wrap', 'order_comments', 'rs-receiver-self', 'rs-receiver-name', 'rs-receiver-phone', 'data-rs-new-address', 'name="rs_saved_address"', '#addresses'] as $part) {
     rs_assert(str_contains($html, $part), 'Missing checkout component: ' . $part);
 }
 rs_assert(str_contains($html, 'name="payment_method"'), 'WooCommerce payment gateways not rendered: ' . implode(',', array_keys(WC()->payment_gateways()->get_available_payment_gateways())) . '; review: ' . substr(wp_strip_all_tags($html), -500));
@@ -116,6 +116,50 @@ $fragments = apply_filters('woocommerce_update_order_review_fragments', ['.exist
 rs_assert(isset($fragments['.existing'], $fragments['.rs-checkout-summary-fragment']), 'Checkout fragments were not preserved or updated');
 rs_assert(str_contains($fragments['.rs-checkout-summary-fragment'], 'Integration test product'), 'Updated summary does not contain cart products');
 rs_assert(!str_contains($fragments['.rs-checkout-summary-fragment'], 'پس از انتخاب روش ارسال'), 'Chosen shipping rate missing from summary');
+// Store checkout addresses in the same account list without rewriting billing profile fields.
+$provider = rs_app()->make(App\Providers\WooCommerceServiceProvider::class);
+$billingBefore = get_user_meta($user->ID, 'billing_first_name', true);
+$newAddress = ['title' => 'Studio', 'name' => 'Recipient Person', 'phone' => '۰۹۱۲۳۴۵۶۷۸۹', 'province' => 'California', 'city' => 'Los Angeles', 'postal' => '۹۰۰۰۱', 'address' => '123 Real Street'];
+$invalidAddress = $provider->saveCheckoutAddress($user->ID, array_merge($newAddress, ['phone' => 'bad']));
+rs_assert(is_wp_error($invalidAddress), 'Invalid address telephone was accepted');
+$rsNew = $provider->saveCheckoutAddress($user->ID, $newAddress);
+rs_assert(is_array($rsNew) && $rsNew['postal'] === '90001' && $rsNew['phone'] === '09123456789', 'Address save or Persian digit normalization failed');
+rs_assert(get_user_meta($user->ID, 'billing_first_name', true) === $billingBefore, 'Saving checkout address unexpectedly changed billing profile');
+$addresses = get_user_meta($user->ID, '_rs_saved_addresses', true);
+rs_assert(count($addresses) === 2 && $addresses[1]['id'] === $rsNew['id'], 'Checkout address not stored in account list');
+$accountAfter = rs_view('woocommerce.my-account', ['dataPage' => 'account']);
+rs_assert(str_contains($accountAfter, '123 Real Street'), 'Checkout address not visible in account page');
+$unauthorized = $provider->saveCheckoutAddress(0, $newAddress);
+rs_assert(is_wp_error($unauthorized), 'Anonymous address storage accepted');
+for ($i = 0; $i < 3; $i++) rs_assert(is_array($provider->saveCheckoutAddress($user->ID, $newAddress)), 'Could not populate account address list');
+rs_assert(is_wp_error($provider->saveCheckoutAddress($user->ID, $newAddress)), 'Address limit silently deleted older addresses');
+
+// Validate and save the alternate recipient in an actual WooCommerce checkout order.
+wc_clear_notices();
+$_POST['rs_recipient_present'] = '1'; $_POST['rs_receiver_name'] = ''; $_POST['rs_receiver_phone'] = 'bad';
+$provider->validateCheckoutRecipient();
+rs_assert(wc_notice_count('error') > 0, 'Invalid alternate recipient was accepted');
+wc_clear_notices();
+$_POST = ['woocommerce-process-checkout-nonce' => wp_create_nonce('woocommerce-process_checkout'),
+    'billing_first_name' => 'Buyer', 'billing_last_name' => 'Name', 'billing_email' => 'buyer@example.test', 'billing_phone' => '1234567890',
+    'billing_country' => 'US', 'billing_state' => 'CA', 'billing_city' => 'Los Angeles', 'billing_postcode' => '90001', 'billing_address_1' => '123 Real Street',
+    'payment_method' => 'bacs', 'shipping_method' => [array_key_first($packages[0]['rates'])],
+    'rs_recipient_present' => '1', 'rs_receiver_name' => 'Other Recipient', 'rs_receiver_phone' => '۰۹۱۲۳۴۵۶۷۸۹'];
+$provider->validateCheckoutRecipient();
+rs_assert(wc_notice_count('error') === 0, 'Valid alternate recipient was rejected');
+$createdId = $checkout->create_order($checkout->get_posted_data());
+rs_assert(!is_wp_error($createdId) && $createdId > 0, 'Could not create WooCommerce checkout order');
+$createdOrder = wc_get_order($createdId);
+rs_assert($createdOrder->get_billing_first_name() === 'Buyer' && $createdOrder->get_billing_last_name() === 'Name', 'Alternate recipient overwrote billing identity');
+rs_assert($createdOrder->get_shipping_address_1() === '123 Real Street' && $createdOrder->get_shipping_city() === 'Los Angeles', 'Selected destination not saved to WooCommerce shipping address');
+rs_assert($createdOrder->get_shipping_first_name() === 'Other Recipient' && $createdOrder->get_shipping_last_name() === '' && $createdOrder->get_shipping_phone() === '09123456789', 'Alternate receiver missing from WooCommerce shipping details');
+rs_assert($createdOrder->get_meta('_rs_receiver_name') === 'Other Recipient', 'Alternate recipient metadata missing');
+$_POST['rs_receiver_self'] = '1';
+$createdOrder->set_shipping_first_name('Buyer');
+$provider->saveCustomOrderMeta($createdOrder, []);
+rs_assert($createdOrder->get_shipping_first_name() === 'Buyer' && $createdOrder->get_meta('_rs_receiver_name') === '', 'Self recipient did not clear stale alternate details');
+$createdOrder->delete(true);
+$_POST = [];
 // Optional gift fee uses the posted checkbox value, including an explicit unchecked value.
 $provider = rs_app()->make(App\Providers\WooCommerceServiceProvider::class);
 WC()->session->set('rs_gift_wrap', false);
