@@ -26,7 +26,7 @@ if (!$cart) return;
         <div class="summary-row is-discount"><span><?php wc_cart_totals_coupon_label($coupon); ?></span><b><?php wc_cart_totals_coupon_html($coupon); ?></b></div>
     <?php endforeach; ?>
     <?php if ($cart->needs_shipping()) : ?>
-        <div class="summary-row"><span>هزینه ارسال</span><b><?php echo wp_kses_post($cart->has_calculated_shipping() ? $cart->get_cart_shipping_total() : 'پس از انتخاب آدرس'); ?></b></div>
+        <div class="summary-row"><span>هزینه ارسال</span><b><?php echo wp_kses_post(WC()->customer && WC()->customer->has_calculated_shipping() ? $cart->get_cart_shipping_total() : 'پس از انتخاب آدرس'); ?></b></div>
     <?php endif; ?>
     <?php foreach ($cart->get_fees() as $fee) : ?>
         <div class="summary-row"><span><?php echo esc_html($fee->name); ?></span><b><?php wc_cart_totals_fee_html($fee); ?></b></div>
