@@ -396,7 +396,7 @@ jobs:
 
   publish-payment-2-2-8:
     needs: integration
-    if: github.event_name == 'push' && github.ref == 'refs/heads/arena/7235594f-rangesadeghi-theme' && github.event.head_commit.message == 'Release checkout 2.2.8'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/arena/7235594f-rangesadeghi-theme' && startsWith(github.event.head_commit.message, 'Publish checkout release 2.2.8')
     runs-on: ubuntu-latest
     permissions:
       contents: write
