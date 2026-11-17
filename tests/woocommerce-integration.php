@@ -105,6 +105,11 @@ foreach (['rs-native-checkout', 'data-rs-checkout-panel="address"', 'data-rs-che
 }
 rs_assert((bool) preg_match('/<select[^>]*id="rs-new-province"[^>]*>/', $html), 'New address state must be a WooCommerce select');
 rs_assert(str_contains($html, 'value="CA"') && str_contains($html, 'California'), 'WooCommerce state choices missing');
+// Guests still need real editable checkout fields because they have no saved account addresses.
+wp_set_current_user(0);
+ob_start(); wc_get_template('checkout/form-billing.php', ['checkout' => $checkout]); $guestHtml = (string) ob_get_clean();
+rs_assert(str_contains($guestHtml, 'rs-guest-address') && str_contains($guestHtml, 'billing_state') && !str_contains($guestHtml, 'class="rs-order-contact"'), 'Guest checkout lost editable address fields');
+wp_set_current_user($user->ID);
 rs_assert(str_contains($html, 'name="payment_method"'), 'WooCommerce payment gateways not rendered: ' . implode(',', array_keys(WC()->payment_gateways()->get_available_payment_gateways())) . '; review: ' . substr(wp_strip_all_tags($html), -500));
 WC()->customer->set_shipping_country('US');
 WC()->customer->set_shipping_state('CA');
@@ -126,6 +131,14 @@ $newAddress = ['title' => 'Studio', 'name' => 'Recipient Person', 'phone' => '۰
 $invalidAddress = $provider->saveCheckoutAddress($user->ID, array_merge($newAddress, ['phone' => 'bad']));
 rs_assert(is_wp_error($invalidAddress), 'Invalid address telephone was accepted');
 $rsNew = $provider->saveCheckoutAddress($user->ID, $newAddress);
+// State codes supplied by the address form must choose the corresponding shipping zone.
+$stateZone = new WC_Shipping_Zone();
+$stateZone->set_zone_name('California only'); $stateZone->set_zone_order(1); $stateZone->add_location('US:CA', 'state'); $stateZone->save();
+rs_assert((bool) $stateZone->add_shipping_method('flat_rate'), 'Could not create state zone rate');
+$californiaPackage = $packages[0]; $californiaPackage['destination']['country'] = 'US'; $californiaPackage['destination']['state'] = $rsNew['province'];
+$newYorkPackage = $californiaPackage; $newYorkPackage['destination']['state'] = 'NY';
+rs_assert(WC_Shipping_Zones::get_zone_matching_package($californiaPackage)->get_id() === $stateZone->get_id(), 'Selected state did not match its shipping zone');
+rs_assert(WC_Shipping_Zones::get_zone_matching_package($newYorkPackage)->get_id() !== $stateZone->get_id(), 'Shipping zone ignored the selected state');
 rs_assert(is_array($rsNew) && $rsNew['province'] === 'CA' && $rsNew['province_label'] === 'California' && $rsNew['country'] === 'US', 'WooCommerce state code or label not stored');
 rs_assert(is_wp_error($provider->saveCheckoutAddress($user->ID, array_merge($newAddress, ['province' => 'invalid-state']))), 'Invalid state was accepted');
 rs_assert($provider->resolveCheckoutState('US', 'California') === 'CA', 'Legacy state label not resolved');
