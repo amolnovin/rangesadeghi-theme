@@ -103,6 +103,9 @@ $html = (string) ob_get_clean();
 foreach (['rs-native-checkout', 'data-rs-checkout-panel="address"', 'data-rs-checkout-panel="review"', 'billing_first_name', 'woocommerce-checkout-review-order', 'woocommerce-process-checkout-nonce', 'place_order', 'rs-checkout-summary-fragment', 'Variable integration product', 'data-rs-saved-list', 'Test Street', 'rs-payment-option', 'data-rs-coupon-card', 'name="rs_delivery_day"', 'rs_official_invoice', 'rs_gift_wrap', 'order_comments', 'rs-receiver-self', 'rs-receiver-name', 'rs-receiver-phone', 'data-rs-new-address', 'name="rs_saved_address"', '#addresses'] as $part) {
     rs_assert(str_contains($html, $part), 'Missing checkout component: ' . $part);
 }
+rs_assert(strpos($html, 'data-rs-coupon-card') < strpos($html, 'data-rs-final-review'), 'Final review is not after coupon');
+rs_assert(str_contains($html, 'name="terms"') && str_contains($html, 'name="terms-field"') && str_contains($html, 'data-rs-place-order'), 'Policy acceptance or nav submit missing');
+rs_assert(substr_count($html, 'id="terms"') === 1 && substr_count($html, 'id="place_order"') === 1, 'Duplicate checkout fields');
 rs_assert((bool) preg_match('/<select[^>]*id="rs-new-province"[^>]*>/', $html), 'New address state must be a WooCommerce select');
 rs_assert(str_contains($html, 'value="CA"') && str_contains($html, 'California'), 'WooCommerce state choices missing');
 // Guests still need real editable checkout fields because they have no saved account addresses.
@@ -124,6 +127,21 @@ $fragments = apply_filters('woocommerce_update_order_review_fragments', ['.exist
 rs_assert(isset($fragments['.existing'], $fragments['.rs-checkout-summary-fragment']), 'Checkout fragments were not preserved or updated');
 rs_assert(str_contains($fragments['.rs-checkout-summary-fragment'], 'Integration test product'), 'Updated summary does not contain cart products');
 rs_assert(!str_contains($fragments['.rs-checkout-summary-fragment'], 'پس از انتخاب روش ارسال'), 'Chosen shipping rate missing from summary');
+// Policy consent is required even when a client omits WooCommerce's terms-field marker.
+$policyProvider = rs_app()->make(App\Providers\WooCommerceServiceProvider::class);
+$policyErrors = new WP_Error(); $policyProvider->validatePolicyAcceptance(['terms' => 0], $policyErrors);
+rs_assert((bool) $policyErrors->get_error_messages('terms'), 'Policy acceptance was not enforced server-side');
+$policyErrors = new WP_Error(); $policyProvider->validatePolicyAcceptance(['terms' => 1], $policyErrors);
+rs_assert(!$policyErrors->has_errors(), 'Accepted policies rejected');
+// Card transfer is a real, opt-in WooCommerce gateway and never uses sample card data.
+$card = new App\WooCommerce\Payments\CardTransfer();
+rs_assert(!$card->is_available(), 'Card transfer must be disabled without merchant configuration');
+update_option('woocommerce_rs_card_transfer_settings', ['enabled' => 'yes', 'title' => 'Card transfer', 'card_number' => '1234567812345678', 'card_holder' => 'Test Merchant', 'instructions' => 'Contact us']);
+$card = new App\WooCommerce\Payments\CardTransfer();
+rs_assert($card->is_available(), 'Configured card transfer gateway unavailable');
+$gatewayClasses = apply_filters('woocommerce_payment_gateways', []);
+rs_assert(in_array(App\WooCommerce\Payments\CardTransfer::class, $gatewayClasses, true), 'Card transfer not registered with WooCommerce');
+rs_assert(isset(WC()->payment_gateways()->get_available_payment_gateways()['bacs']), 'Existing enabled payment gateway disappeared');
 // Store checkout addresses in the same account list without rewriting billing profile fields.
 $provider = rs_app()->make(App\Providers\WooCommerceServiceProvider::class);
 $billingBefore = get_user_meta($user->ID, 'billing_first_name', true);
@@ -229,7 +247,16 @@ wc_clear_notices(); $provider->validateDeliveryPreference();
 rs_assert(wc_notice_count('error') > 0, 'Missing scheduled time accepted');
 wc_clear_notices(); $_POST['rs_delivery_day'] = '2020-01-01'; $_POST['rs_delivery_slot'] = 'Morning'; $provider->validateDeliveryPreference();
 rs_assert(wc_notice_count('error') > 0, 'Past scheduled day accepted');
-wc_clear_notices(); $_POST['rs_delivery_day'] = wp_date('Y-m-d', time() + 86400 * 2); $_POST['rs_delivery_slot'] = 'Morning'; $_POST['rs_official_invoice'] = '1';
+// Friday is rejected for pickup, but remains available for courier.
+rs_app('options')->update(['shop' => ['delivery_days_ahead' => 14]]);
+$testToday = new DateTimeImmutable('today', wp_timezone());
+$friday = $testToday->modify('+' . ((5 - (int) $testToday->format('N') + 7) % 7) . ' days');
+$_POST['rs_delivery_day'] = $friday->format('Y-m-d'); $_POST['rs_delivery_slot'] = 'Morning';
+wc_clear_notices(); $provider->validateDeliveryPreference(); rs_assert(wc_notice_count('error') > 0, 'Friday pickup accepted');
+$_POST['shipping_method'] = ['rs_store_courier']; wc_clear_notices(); $provider->validateDeliveryPreference(); rs_assert(wc_notice_count('error') === 0, 'Friday courier should remain available');
+$_POST['shipping_method'] = ['rs_store_pickup']; rs_app('options')->update(['shop' => ['delivery_days_ahead' => 6]]);
+$validDay = $testToday->modify('+2 days'); if ($validDay->format('N') === '5') $validDay = $validDay->modify('+1 day');
+wc_clear_notices(); $_POST['rs_delivery_day'] = $validDay->format('Y-m-d'); $_POST['rs_delivery_slot'] = 'Morning'; $_POST['rs_official_invoice'] = '1';
 $provider->validateDeliveryPreference();
 rs_assert(wc_notice_count('error') === 0, 'Valid scheduled time rejected');
 $scheduledPost = $_POST;
@@ -276,6 +303,15 @@ ob_start();
 wc_get_template('checkout/thankyou.php', ['order' => false]);
 $noOrder = (string) ob_get_clean();
 rs_assert(!str_contains($noOrder, 'is-complete'), 'Missing order shown as complete');
+// Offline card payment must never mark an order paid automatically.
+$cardOrder = wc_create_order(['customer_id' => $user->ID]);
+$cardOrder->add_product($product, 1); $cardOrder->set_payment_method($card); $cardOrder->calculate_totals(); $cardOrder->save();
+$result = $card->process_payment($cardOrder->get_id());
+$cardOrder = wc_get_order($cardOrder->get_id());
+rs_assert($result['result'] === 'success' && $cardOrder->has_status('on-hold') && !$cardOrder->is_paid(), 'Card transfer incorrectly marked payment complete');
+ob_start(); $card->thankyouPage($cardOrder->get_id()); $cardText = (string) ob_get_clean();
+rs_assert(str_contains($cardText, '1234567812345678') && str_contains($cardText, 'Test Merchant'), 'Configured transfer details missing on thank-you page');
+$cardOrder->delete(true);
 WC()->cart->empty_cart();
 $order->delete(true);
 $variation->delete(true);

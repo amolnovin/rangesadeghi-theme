@@ -38,6 +38,8 @@ final class WooCommerceServiceProvider extends ServiceProvider
         add_filter('woocommerce_validate_postcode', [$this, 'allowCheckoutPostcodeFallback'], 10, 3);
         add_filter('woocommerce_format_postcode', [$this, 'preserveCheckoutPostcodeFallback'], 10, 2);
         add_filter('woocommerce_shipping_methods', [$this, 'registerThemeShippingMethods']);
+        add_filter('woocommerce_payment_gateways', [$this, 'registerCardTransferGateway']);
+        add_action('woocommerce_after_checkout_validation', [$this, 'validatePolicyAcceptance'], 10, 2);
         add_action('woocommerce_after_shipping_rate', [$this, 'shippingRateDetails'], 10, 2);
 
         // Keep the sidebar in sync with WooCommerce's checkout AJAX updates.
@@ -115,6 +117,19 @@ final class WooCommerceServiceProvider extends ServiceProvider
             if (Persian::normalize((string) $label) === Persian::normalize($state)) return (string) $code;
         }
         return '';
+    }
+
+    public function registerCardTransferGateway(array $gateways): array
+    {
+        $gateways[] = \App\WooCommerce\Payments\CardTransfer::class;
+        return $gateways;
+    }
+
+    public function validatePolicyAcceptance(array $data, \WP_Error $errors): void
+    {
+        if (empty($data['woocommerce_checkout_update_totals']) && empty($data['terms']) && !$errors->get_error_messages('terms')) {
+            $errors->add('terms', 'برای ثبت سفارش، قوانین و شرایط بازگشت کالا را بپذیرید.', ['id' => 'terms']);
+        }
     }
 
     public function registerThemeShippingMethods(array $methods): array
@@ -305,30 +320,42 @@ final class WooCommerceServiceProvider extends ServiceProvider
         }
     }
 
+    /** Selected, actually available theme shipping methods for all packages. */
+    private function scheduledShippingMethods(): array
+    {
+        if (!WC()->cart || !WC()->cart->needs_shipping()) return [];
+        $chosen = isset($_POST['shipping_method']) && is_array($_POST['shipping_method']) ? wc_clean(wp_unslash($_POST['shipping_method'])) : (WC()->session ? WC()->session->get('chosen_shipping_methods', []) : []);
+        $methods = [];
+        foreach (WC()->shipping()->get_packages() as $index => $package) {
+            $rate = $package['rates'][$chosen[$index] ?? ''] ?? null;
+            if ($rate && in_array($rate->get_method_id(), ['rs_store_courier', 'rs_store_pickup'], true)) $methods[] = $rate->get_method_id();
+        }
+        return $methods;
+    }
+
     private function usesScheduledShipping(): bool
     {
-        if (!WC()->cart || !WC()->cart->needs_shipping()) return false;
-        $chosen = isset($_POST['shipping_method']) && is_array($_POST['shipping_method']) ? wc_clean(wp_unslash($_POST['shipping_method'])) : (WC()->session ? WC()->session->get('chosen_shipping_methods', []) : []);
-        foreach (WC()->shipping()->get_packages() as $index => $package) {
-            $id = $chosen[$index] ?? '';
-            $rate = $package['rates'][$id] ?? null;
-            if ($rate && in_array($rate->get_method_id(), ['rs_store_courier', 'rs_store_pickup'], true)) return true;
-        }
-        return false;
+        return $this->scheduledShippingMethods() !== [];
     }
 
     public function validateDeliveryPreference(): void
     {
-        if (!$this->usesScheduledShipping()) return;
+        $methods = $this->scheduledShippingMethods();
+        if (!$methods) return;
         $day = sanitize_text_field((string) wp_unslash($_POST['rs_delivery_day'] ?? ''));
         $slot = sanitize_text_field((string) wp_unslash($_POST['rs_delivery_slot'] ?? ''));
         $slots = array_filter(array_map('trim', explode(',', (string) rs_option('shop.delivery_slots', ''))));
         $today = new \DateTimeImmutable('today', wp_timezone());
         $days = max(1, min(30, (int) rs_option('shop.delivery_days_ahead', 6)));
         $date = \DateTimeImmutable::createFromFormat('!Y-m-d', $day, wp_timezone());
-        if (!$date || $date->format('Y-m-d') !== $day || $date < $today || $date >= $today->modify('+' . $days . ' days') || !in_array($slot, $slots, true)) {
-            wc_add_notice('لطفاً روز و بازه معتبر تحویل را انتخاب کنید.', 'error');
+        $valid = $date && $date->format('Y-m-d') === $day && $date >= $today && in_array($slot, $slots, true);
+        if ($valid && in_array('rs_store_courier', $methods, true) && $date >= $today->modify('+' . $days . ' days')) $valid = false;
+        if ($valid && in_array('rs_store_pickup', $methods, true)) {
+            $cursor = $today; $openDays = 0;
+            while ($openDays < $days) { if ($cursor->format('N') !== '5') $openDays++; $cursor = $cursor->modify('+1 day'); }
+            if ($date->format('N') === '5' || $date >= $cursor) $valid = false;
         }
+        if (!$valid) wc_add_notice('لطفاً روز و بازه معتبر تحویل را انتخاب کنید؛ تحویل حضوری جمعه‌ها انجام نمی‌شود.', 'error');
     }
 
     public function validateCheckoutRecipient(): void

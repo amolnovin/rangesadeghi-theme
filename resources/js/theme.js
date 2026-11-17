@@ -832,6 +832,14 @@
     const syncDelivery = () => {
       const infos = selectedRates().map(el => el.closest('li')?.querySelector('.rs-rate-info')).filter(Boolean);
       const scheduled = infos.some(el => ['rs_store_courier', 'rs_store_pickup'].includes(el.dataset.rsRateKind));
+      const pickupSelected = infos.some(el => el.dataset.rsRateKind === 'rs_store_pickup');
+      const courierSelected = infos.some(el => el.dataset.rsRateKind === 'rs_store_courier');
+      $$('[data-rs-pickup-day]', form).forEach(label => {
+        const input = $('input[name="rs_delivery_day"]', label);
+        const allowed = (!pickupSelected || label.dataset.rsPickupDay === '1') && (!courierSelected || label.dataset.rsCourierDay === '1');
+        label.hidden = !allowed;
+        if (input) { input.disabled = !allowed; if (!allowed) input.checked = false; }
+      });
       const card = $('[data-rs-slot-card]', form), eta = $('[data-rs-eta-card]', form), text = $('[data-rs-eta-text]', form);
       if (card) card.hidden = !scheduled;
       const pickup = $('[data-rs-pickup-address]', form);
@@ -860,7 +868,9 @@
       if (paymentTarget) paymentTarget.textContent = label?.textContent.trim() || '—';
     };
     const show = (index, refresh = false) => {
+      const previous = current;
       current = Math.max(0, Math.min(index, keys.length - 1));
+      if (previous !== current) window.scrollTo({ top: 0, behavior: 'smooth' });
       form.dataset.rsStep = keys[current];
       address.hidden = current !== 0;
       review.hidden = current === 0;
@@ -868,6 +878,8 @@
       if (paymentExtra) paymentExtra.hidden = current !== 2;
       back.textContent = current === 0 ? 'بازگشت به سبد خرید' : 'مرحله قبل';
       next.hidden = current === 2;
+      const submit = $('[data-rs-place-order]', form);
+      if (submit) submit.hidden = current !== 2;
       next.textContent = current === 1 ? 'ادامه به پرداخت' : 'ادامه به روش ارسال';
       const heading = $('[data-rs-review-heading]', form), description = $('[data-rs-review-description]', form);
       if (heading) heading.textContent = current === 1 ? 'شیوه ارسال سفارش' : 'بازبینی سفارش';
@@ -919,11 +931,21 @@
     $$('.rs-checkout-steps [data-rs-goto]').forEach(button => button.addEventListener('click', () => { const target = keys.indexOf(button.dataset.rsGoto); if (target >= 0 && target < current) show(target); }));
     $('[data-rs-edit-address]', form)?.addEventListener('click', () => show(0));
     $('[name="rs_gift_wrap"][type="checkbox"]', form)?.addEventListener('change', () => { if (window.jQuery) window.jQuery(document.body).trigger('update_checkout'); });
+    const placeOrder = $('[data-rs-place-order]', form);
+    const syncPlaceOrder = () => {
+      const native = $('#place_order', form);
+      if (placeOrder && native) placeOrder.textContent = native.textContent.trim() || 'ثبت سفارش';
+    };
+    placeOrder?.addEventListener('click', () => {
+      const terms = $('#terms', form);
+      if (terms && !terms.checked) { terms.focus(); showToast('لطفاً قوانین و شرایط بازگشت کالا را بپذیرید.', 'i-info'); return; }
+      if (!form.classList.contains('processing')) $('#place_order', form)?.click();
+    });
     const finalReview = $('[data-rs-final-review]', form);
     if (finalReview) finalReview.hidden = false;
-    form.addEventListener('change', () => { syncDelivery(); updateReview(); });
+    form.addEventListener('change', () => { syncDelivery(); updateReview(); setTimeout(syncPlaceOrder, 0); });
     if (window.jQuery) {
-      window.jQuery(document.body).on('updated_checkout', () => { syncShippingMessage(); syncDelivery(); updateReview(); });
+      window.jQuery(document.body).on('updated_checkout', () => { syncShippingMessage(); syncDelivery(); updateReview(); syncPlaceOrder(); });
       window.jQuery(document.body).on('checkout_error', () => {
         const invalid = $('.woocommerce-invalid', address);
         if (invalid) { show(0); if (picker && invalid.closest('[data-rs-customer-fields]')) { const extra = $('[data-rs-contact-fields]', form), panel = $('[data-rs-contact-completion]', form); if (extra && panel) { extra.appendChild(invalid); panel.hidden = false; } } if (billingDetails && invalid.closest('[data-rs-billing-details]')) billingDetails.open = true; const shippingDetails = $('[data-rs-shipping-details]', form); if (shippingDetails && invalid.closest('[data-rs-shipping-details]')) shippingDetails.open = true; invalid.querySelector('input,select,textarea')?.focus(); return; }
