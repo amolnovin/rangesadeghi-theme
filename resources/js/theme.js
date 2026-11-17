@@ -728,6 +728,8 @@
         el.classList.toggle('is-active', i === current);
         el.classList.toggle('is-done', el.dataset.rsIndicator === 'cart' || (i >= 0 && i < current));
         if (i === current) el.setAttribute('aria-current', 'step'); else el.removeAttribute('aria-current');
+        const button = $('[data-rs-goto]', el);
+        if (button) button.disabled = i < 0 || i >= current;
       });
       syncShippingMessage(); updateReview();
       if (refresh && window.jQuery) window.jQuery(document.body).trigger('update_checkout');
@@ -749,6 +751,7 @@
       show(current + 1, current === 0);
     });
     back.addEventListener('click', () => { if (current === 0) window.location.href = WP.cartUrl || '/'; else show(current - 1); });
+    $$('.rs-checkout-steps [data-rs-goto]').forEach(button => button.addEventListener('click', () => { const target = keys.indexOf(button.dataset.rsGoto); if (target >= 0 && target < current) show(target); }));
     $('[data-rs-edit-address]', form)?.addEventListener('click', () => show(0));
     $('[name="rs_gift_wrap"][type="checkbox"]', form)?.addEventListener('change', () => { if (window.jQuery) window.jQuery(document.body).trigger('update_checkout'); });
     const finalReview = $('[data-rs-final-review]', form);

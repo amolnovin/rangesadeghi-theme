@@ -17,6 +17,8 @@ $current = array_search($step, array_keys($steps), true);
         <li class="<?php echo $index < $current ? 'is-done' : ($index === $current ? 'is-active' : ''); ?>" data-rs-indicator="<?php echo esc_attr($key); ?>" <?php echo $index === $current ? 'aria-current="step"' : ''; ?>>
             <?php if ($key === 'cart') : ?>
                 <a class="co-step-btn" href="<?php echo esc_url(wc_get_cart_url()); ?>"><i><svg><use href="#<?php echo esc_attr($item[2]); ?>"/></svg></i><span><b><?php echo esc_html($item[0]); ?></b><small><?php echo esc_html($item[1]); ?></small></span></a>
+            <?php elseif ($step !== 'done' && in_array($key, ['address', 'shipping', 'payment'], true)) : ?>
+                <button class="co-step-btn" type="button" data-rs-goto="<?php echo esc_attr($key); ?>" disabled><i><svg><use href="#<?php echo esc_attr($item[2]); ?>"/></svg></i><span><b><?php echo esc_html($item[0]); ?></b><small><?php echo esc_html($item[1]); ?></small></span></button>
             <?php else : ?>
                 <span class="co-step-btn"><i><svg><use href="#<?php echo esc_attr($item[2]); ?>"/></svg></i><span><b><?php echo esc_html($item[0]); ?></b><small><?php echo esc_html($item[1]); ?></small></span></span>
             <?php endif; ?>
