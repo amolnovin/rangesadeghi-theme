@@ -15,13 +15,7 @@ if (!$checkout->is_registration_enabled() && $checkout->is_registration_required
     return;
 }
 ?>
-<ol class="co-steps rs-checkout-steps" aria-label="مراحل خرید">
-    <li class="is-done"><a class="co-step-btn" href="<?php echo esc_url(wc_get_cart_url()); ?>"><i><svg><use href="#i-bag"/></svg><em>۱</em></i><span><b>سبد خرید</b><small>بررسی کالاها</small></span></a></li>
-    <li class="is-active" data-rs-indicator="address"><span class="co-step-btn"><i><svg><use href="#i-pin"/></svg><em>۲</em></i><span><b>آدرس تحویل</b><small>گیرنده و نشانی</small></span></span></li>
-    <li data-rs-indicator="shipping"><span class="co-step-btn"><i><svg><use href="#i-truck"/></svg><em>۳</em></i><span><b>شیوه ارسال</b><small>روش و هزینه تحویل</small></span></span></li>
-    <li data-rs-indicator="payment"><span class="co-step-btn"><i><svg><use href="#i-card"/></svg><em>۴</em></i><span><b>پرداخت</b><small>روش پرداخت و ثبت سفارش</small></span></span></li>
-    <li><span class="co-step-btn"><i><svg><use href="#i-check"/></svg><em>۵</em></i><span><b>تکمیل سفارش</b><small>ثبت نهایی</small></span></span></li>
-</ol>
+<?php wc_get_template('checkout/rs-progress.php', ['step' => 'address']); ?>
 <form name="checkout" method="post" class="checkout woocommerce-checkout cart-layout co-layout rs-native-checkout" action="<?php echo esc_url(wc_get_checkout_url()); ?>" enctype="multipart/form-data" aria-label="<?php echo esc_attr__('Checkout', 'woocommerce'); ?>">
     <div class="co-main">
         <section class="co-card rs-address-step" data-rs-checkout-panel="address">
@@ -36,9 +30,10 @@ if (!$checkout->is_registration_enabled() && $checkout->is_registration_required
             <?php endif; ?>
         </section>
         <section class="co-card rs-review-step" data-rs-checkout-panel="review">
-            <header class="co-card-head"><span class="co-card-num">۲</span><div class="co-card-title"><h2 id="order_review_heading"><?php esc_html_e('Your order', 'woocommerce'); ?></h2><p>روش ارسال و پرداخت را بررسی کنید.</p></div></header>
+            <header class="co-card-head"><span class="co-card-num">۲</span><div class="co-card-title"><h2 id="order_review_heading" data-rs-review-heading><?php esc_html_e('Your order', 'woocommerce'); ?></h2><p data-rs-review-description>روش ارسال و پرداخت را بررسی کنید.</p></div></header>
             <?php do_action('woocommerce_checkout_before_order_review_heading'); ?>
             <?php do_action('woocommerce_checkout_before_order_review'); ?>
+            <p class="rs-shipping-message" hidden data-rs-shipping-message><?php echo WC()->cart && !WC()->cart->needs_shipping() ? 'برای کالاهای این سفارش ارسال لازم نیست.' : 'برای مشاهده روش‌های ارسال، نشانی تحویل را کامل کنید.'; ?></p>
             <div id="order_review" class="woocommerce-checkout-review-order">
                 <?php do_action('woocommerce_checkout_order_review'); ?>
             </div>
@@ -49,5 +44,6 @@ if (!$checkout->is_registration_enabled() && $checkout->is_registration_required
             <button type="button" class="btn btn-primary" data-rs-checkout-next>ادامه</button>
         </nav>
     </div>
+    <aside class="cart-side"><div class="summary-card"><?php wc_get_template('checkout/rs-summary.php'); ?></div></aside>
 </form>
 <?php do_action('woocommerce_after_checkout_form', $checkout); ?>

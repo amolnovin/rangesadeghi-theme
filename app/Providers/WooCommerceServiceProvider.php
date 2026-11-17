@@ -31,6 +31,9 @@ final class WooCommerceServiceProvider extends ServiceProvider
         // ذخیره متای اختصاصی تسویه حساب روی سفارش ووکامرس (سازگار با HPOS)
         add_action('woocommerce_checkout_create_order', [$this, 'saveCustomOrderMeta'], 10, 2);
 
+        // Keep the sidebar in sync with WooCommerce's checkout AJAX updates.
+        add_filter('woocommerce_update_order_review_fragments', [$this, 'checkoutSummaryFragment']);
+
         // Shipping rates and free-shipping eligibility are controlled by WooCommerce shipping zones.
 
         // اندپوینت‌های AJAX اختصاصی و فوق‌سبک فروشگاه، سبد خرید، علاقه‌مندی و حساب کاربری
@@ -61,6 +64,14 @@ final class WooCommerceServiceProvider extends ServiceProvider
         foreach ($authAjax as $action => $handler) {
             add_action("wp_ajax_{$action}", $handler);
         }
+    }
+
+    public function checkoutSummaryFragment(array $fragments): array
+    {
+        ob_start();
+        wc_get_template('checkout/rs-summary.php');
+        $fragments['.rs-checkout-summary-fragment'] = (string) ob_get_clean();
+        return $fragments;
     }
 
     public function declareCompatibility(): void
