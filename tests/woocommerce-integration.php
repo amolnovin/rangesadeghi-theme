@@ -7,6 +7,7 @@ function rs_assert($condition, string $message): void {
 }
 rs_assert(function_exists('WC'), 'WooCommerce is not active');
 wc_load_cart();
+update_option('woocommerce_default_country', 'US:CA');
 update_option('woocommerce_ship_to_countries', '');
 $zone = WC_Shipping_Zones::get_zone(0);
 rs_assert((bool) $zone->add_shipping_method('flat_rate'), 'Could not configure a real WooCommerce shipping method');
@@ -102,6 +103,8 @@ $html = (string) ob_get_clean();
 foreach (['rs-native-checkout', 'data-rs-checkout-panel="address"', 'data-rs-checkout-panel="review"', 'billing_first_name', 'woocommerce-checkout-review-order', 'woocommerce-process-checkout-nonce', 'place_order', 'rs-checkout-summary-fragment', 'Variable integration product', 'data-rs-saved-list', 'Test Street', 'rs-payment-option', 'data-rs-coupon-card', 'name="rs_delivery_day"', 'rs_official_invoice', 'rs_gift_wrap', 'order_comments', 'rs-receiver-self', 'rs-receiver-name', 'rs-receiver-phone', 'data-rs-new-address', 'name="rs_saved_address"', '#addresses'] as $part) {
     rs_assert(str_contains($html, $part), 'Missing checkout component: ' . $part);
 }
+rs_assert((bool) preg_match('/<select[^>]*id="rs-new-province"[^>]*>/', $html), 'New address state must be a WooCommerce select');
+rs_assert(str_contains($html, 'value="CA"') && str_contains($html, 'California'), 'WooCommerce state choices missing');
 rs_assert(str_contains($html, 'name="payment_method"'), 'WooCommerce payment gateways not rendered: ' . implode(',', array_keys(WC()->payment_gateways()->get_available_payment_gateways())) . '; review: ' . substr(wp_strip_all_tags($html), -500));
 WC()->customer->set_shipping_country('US');
 WC()->customer->set_shipping_state('CA');
@@ -119,10 +122,13 @@ rs_assert(!str_contains($fragments['.rs-checkout-summary-fragment'], 'پس از 
 // Store checkout addresses in the same account list without rewriting billing profile fields.
 $provider = rs_app()->make(App\Providers\WooCommerceServiceProvider::class);
 $billingBefore = get_user_meta($user->ID, 'billing_first_name', true);
-$newAddress = ['title' => 'Studio', 'name' => 'Recipient Person', 'phone' => '۰۹۱۲۳۴۵۶۷۸۹', 'province' => 'California', 'city' => 'Los Angeles', 'postal' => '۹۰۰۰۱', 'address' => '123 Real Street'];
+$newAddress = ['title' => 'Studio', 'name' => 'Recipient Person', 'phone' => '۰۹۱۲۳۴۵۶۷۸۹', 'country' => 'US', 'province' => 'CA', 'city' => 'Los Angeles', 'postal' => '۹۰۰۰۱', 'address' => '123 Real Street'];
 $invalidAddress = $provider->saveCheckoutAddress($user->ID, array_merge($newAddress, ['phone' => 'bad']));
 rs_assert(is_wp_error($invalidAddress), 'Invalid address telephone was accepted');
 $rsNew = $provider->saveCheckoutAddress($user->ID, $newAddress);
+rs_assert(is_array($rsNew) && $rsNew['province'] === 'CA' && $rsNew['province_label'] === 'California' && $rsNew['country'] === 'US', 'WooCommerce state code or label not stored');
+rs_assert(is_wp_error($provider->saveCheckoutAddress($user->ID, array_merge($newAddress, ['province' => 'invalid-state']))), 'Invalid state was accepted');
+rs_assert($provider->resolveCheckoutState('US', 'California') === 'CA', 'Legacy state label not resolved');
 rs_assert(is_array($rsNew) && $rsNew['postal'] === '90001' && $rsNew['phone'] === '09123456789', 'Address save or Persian digit normalization failed');
 rs_assert(get_user_meta($user->ID, 'billing_first_name', true) === $billingBefore, 'Saving checkout address unexpectedly changed billing profile');
 $addresses = get_user_meta($user->ID, '_rs_saved_addresses', true);
@@ -168,6 +174,19 @@ $createdOrder->set_shipping_first_name('Buyer');
 $provider->saveCustomOrderMeta($createdOrder, []);
 rs_assert($createdOrder->get_shipping_first_name() === 'Buyer' && $createdOrder->get_meta('_rs_receiver_name') === '', 'Self recipient did not clear stale alternate details');
 $createdOrder->delete(true);
+// Empty postcodes become the exact placeholder in validated order data, including countries with strict postcode formats.
+$_POST['billing_postcode'] = '';
+$posted = $checkout->get_posted_data();
+rs_assert($posted['billing_postcode'] === '0000000000' && $posted['shipping_postcode'] === '0000000000', 'Missing postcode did not receive placeholder');
+rs_assert(wc_format_postcode('0000000000', 'US') === '0000000000' && WC_Validation::is_postcode('0000000000', 'US'), 'Placeholder failed strict country postcode validation');
+$errors = new WP_Error();
+$validate = new ReflectionMethod(WC_Checkout::class, 'validate_posted_data');
+$validate->invokeArgs($checkout, [&$posted, &$errors]);
+rs_assert(!$errors->get_error_messages('billing_postcode_validation'), 'WooCommerce rejected the placeholder during checkout validation');
+$placeholderId = $checkout->create_order($posted);
+$placeholderOrder = wc_get_order($placeholderId);
+rs_assert($placeholderOrder && $placeholderOrder->get_billing_postcode() === '0000000000' && $placeholderOrder->get_shipping_postcode() === '0000000000', 'Placeholder did not persist on order');
+$placeholderOrder->delete(true);
 $_POST = [];
 // Optional gift fee uses the posted checkbox value, including an explicit unchecked value.
 $provider = rs_app()->make(App\Providers\WooCommerceServiceProvider::class);

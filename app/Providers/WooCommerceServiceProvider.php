@@ -34,6 +34,9 @@ final class WooCommerceServiceProvider extends ServiceProvider
         add_action('woocommerce_after_checkout_validation', [$this, 'validateDeliveryPreference']);
         add_action('woocommerce_checkout_process', [$this, 'validateCheckoutRecipient']);
         add_filter('woocommerce_checkout_fields', [$this, 'checkoutOptionalPostcode'], 999);
+        add_filter('woocommerce_checkout_posted_data', [$this, 'checkoutPostcodeFallback'], 20);
+        add_filter('woocommerce_validate_postcode', [$this, 'allowCheckoutPostcodeFallback'], 10, 3);
+        add_filter('woocommerce_format_postcode', [$this, 'preserveCheckoutPostcodeFallback'], 10, 2);
         add_filter('woocommerce_shipping_methods', [$this, 'registerThemeShippingMethods']);
         add_action('woocommerce_after_shipping_rate', [$this, 'shippingRateDetails'], 10, 2);
 
@@ -79,6 +82,39 @@ final class WooCommerceServiceProvider extends ServiceProvider
             if (isset($fields[$section][$section . '_postcode'])) $fields[$section][$section . '_postcode']['required'] = false;
         }
         return $fields;
+    }
+
+    /** Use a known placeholder rather than an empty postcode, including for guest checkouts. */
+    public function checkoutPostcodeFallback(array $data): array
+    {
+        foreach (['billing_postcode', 'shipping_postcode'] as $key) {
+            if (isset($data[$key]) && trim((string) $data[$key]) === '') $data[$key] = '0000000000';
+        }
+        return $data;
+    }
+
+    public function allowCheckoutPostcodeFallback(bool $valid, string $postcode, string $country): bool
+    {
+        if ($postcode === '0000000000' && ((function_exists('is_checkout') && is_checkout()) || defined('WOOCOMMERCE_CHECKOUT'))) return true;
+        return $valid;
+    }
+
+    public function preserveCheckoutPostcodeFallback(string $postcode, string $country): string
+    {
+        if (preg_replace('/[\s-]/', '', $postcode) === '0000000000' && ((function_exists('is_checkout') && is_checkout()) || defined('WOOCOMMERCE_CHECKOUT'))) return '0000000000';
+        return $postcode;
+    }
+
+    /** Resolve both WooCommerce state codes and legacy saved state names. */
+    public function resolveCheckoutState(string $country, string $state): string
+    {
+        $states = WC()->countries->get_states($country);
+        if (!is_array($states) || !$states) return $state;
+        if (isset($states[$state])) return $state;
+        foreach ($states as $code => $label) {
+            if (Persian::normalize((string) $label) === Persian::normalize($state)) return (string) $code;
+        }
+        return '';
     }
 
     public function registerThemeShippingMethods(array $methods): array
@@ -658,7 +694,11 @@ final class WooCommerceServiceProvider extends ServiceProvider
         $title = $value('title');
         $name = $value('name');
         $phone = Persian::toEn($value('phone'));
-        $province = $value('province');
+        $country = $value('country') ?: (string) (get_user_meta($userId, 'billing_country', true) ?: WC()->countries->get_base_country());
+        if (!isset(WC()->countries->get_allowed_countries()[$country])) return new \WP_Error('invalid_country', 'کشور انتخاب‌شده معتبر نیست.');
+        $province = $this->resolveCheckoutState($country, $value('province'));
+        $states = WC()->countries->get_states($country);
+        $provinceLabel = is_array($states) ? (string) ($states[$province] ?? $province) : $province;
         $city = $value('city');
         $postal = Persian::toEn($value('postal'));
         $address = sanitize_textarea_field((string) ($input['address'] ?? ''));
@@ -672,7 +712,7 @@ final class WooCommerceServiceProvider extends ServiceProvider
             $saved[] = ['id' => 'billing-default', 'title' => 'آدرس پیش‌فرض', 'name' => trim((string) get_user_meta($userId, 'billing_first_name', true) . ' ' . (string) get_user_meta($userId, 'billing_last_name', true)) ?: ($user ? $user->display_name : ''), 'phone' => (string) get_user_meta($userId, 'billing_phone', true), 'province' => (string) get_user_meta($userId, 'billing_state', true), 'city' => (string) get_user_meta($userId, 'billing_city', true), 'postal' => (string) get_user_meta($userId, 'billing_postcode', true), 'address' => $billingAddress, 'address2' => (string) get_user_meta($userId, 'billing_address_2', true), 'isDefault' => true];
         }
         if (count($saved) >= 5) return new \WP_Error('address_limit', 'حداکثر ۵ آدرس ذخیره می‌شود؛ ابتدا یکی را در حساب کاربری حذف کنید.');
-        $newItem = ['id' => 'addr-' . wp_generate_uuid4(), 'title' => $title, 'name' => $name, 'phone' => $phone, 'province' => $province, 'city' => $city, 'postal' => $postal, 'address' => $address, 'isDefault' => $saved === []];
+        $newItem = ['id' => 'addr-' . wp_generate_uuid4(), 'title' => $title, 'name' => $name, 'phone' => $phone, 'province' => $province, 'province_label' => $provinceLabel, 'country' => $country, 'city' => $city, 'postal' => $postal, 'address' => $address, 'isDefault' => $saved === []];
         $saved[] = $newItem;
         update_user_meta($userId, '_rs_saved_addresses', $saved);
         return $newItem;

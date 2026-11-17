@@ -669,7 +669,7 @@
       if (!field) return;
       if (field.tagName === 'SELECT') {
         const target = String(value || '').trim();
-        const normalize = text => text.replace(/ي/g, 'ی').replace(/ك/g, 'ک').trim();
+        const normalize = text => text.replace(/ي/g, 'ی').replace(/ك/g, 'ک').replace(/ة/g, 'ه').replace(/\u200c/g, ' ').trim().replace(/\s+/g, ' ').toLowerCase();
         const option = Array.from(field.options).find(o => o.value === target || normalize(o.textContent) === normalize(target));
         field.value = option ? option.value : '';
       } else field.value = value || '';
@@ -679,20 +679,37 @@
     const applyAddress = (saved, targetShipping = false) => {
       if (!saved) return;
       applyingAddress = true;
+      if (!targetShipping && saved.country && $('#billing_country', form)?.value !== saved.country) changeField($('#billing_country', form), saved.country);
       const prefixes = targetShipping ? ['shipping_'] : ['billing_'];
       if (!targetShipping && $('#ship-to-different-address-checkbox', form)?.checked) prefixes.push('shipping_');
       prefixes.forEach(prefix => {
-        const values = { city: saved.city, postcode: toEn(saved.postal || ''), address_1: saved.address, address_2: saved.address2 || '', state: saved.province };
+        const values = { city: saved.city, postcode: toEn(saved.postal || '0000000000'), address_1: saved.address, address_2: saved.address2 || '', state: saved.province };
         Object.entries(values).forEach(([key, value]) => changeField(document.getElementById(prefix + key), value));
       });
+      if (!targetShipping) {
+        const names = (saved.name || '').trim().split(/\s+/);
+        if (!$('#billing_first_name', form)?.value && names[0]) changeField($('#billing_first_name', form), names.shift());
+        else names.shift();
+        if (!$('#billing_last_name', form)?.value && names.length) changeField($('#billing_last_name', form), names.join(' '));
+        if (!$('#billing_phone', form)?.value && saved.phone) changeField($('#billing_phone', form), toEn(saved.phone));
+      }
       applyingAddress = false;
     };
     const syncSavedAddressFields = () => {
-      ['state', 'city', 'postcode', 'address_1', 'address_2'].forEach(key => {
-        const field = document.getElementById('billing_' + key);
-        const row = field?.closest('.form-row');
-        if (row) row.classList.toggle('rs-saved-field', !!selectedAddress && (!!field.value || !row.classList.contains('validate-required')));
+      const home = $('[data-rs-billing-field-home]', form), extra = $('[data-rs-contact-fields]', form), panel = $('[data-rs-contact-completion]', form);
+      if (!home || !extra || !panel) return;
+      const core = ['billing_first_name', 'billing_last_name', 'billing_company', 'billing_country', 'billing_state', 'billing_city', 'billing_postcode', 'billing_address_1', 'billing_address_2', 'billing_phone', 'billing_email'];
+      const addressFields = ['billing_country', 'billing_state', 'billing_city', 'billing_postcode', 'billing_address_1', 'billing_address_2'];
+      [...home.children, ...extra.children].forEach(row => {
+        const field = row.querySelector('input,select,textarea');
+        if (!field) return;
+        const requiredMissing = row.classList.contains('validate-required') && !field.value.trim();
+        const invalidEmail = field.id === 'billing_email' && field.value && !field.validity.valid;
+        const unknownState = field.id === 'billing_state' && field.tagName === 'SELECT' && !!selectedAddress && !field.value && !!selectedAddress.province;
+        const show = !core.includes(field.id) || unknownState || (requiredMissing && (selectedAddress || picker?.dataset.rsRequiresAddress !== '1' || !addressFields.includes(field.id))) || invalidEmail;
+        (show ? extra : home).appendChild(row);
       });
+      panel.hidden = !extra.children.length;
     };
     const selectAddress = label => {
       let saved;
@@ -706,6 +723,7 @@
       });
       applyAddress(saved);
       syncSavedAddressFields();
+      if (window.jQuery) window.jQuery(document.body).trigger('update_checkout');
       if (billingDetails) {
         billingDetails.open = true;
         const missing = $$('.validate-required input, .validate-required select, .validate-required textarea', billingDetails)
@@ -724,8 +742,9 @@
       const currentAddress = $('#billing_address_1', form)?.value.trim();
       const initial = picker.dataset.rsSubmitted === '1' ? cards.find(el => $('input', el)?.value === picker.dataset.rsSelected) : (cards.find(el => { try { return currentAddress && JSON.parse(el.dataset.address).address === currentAddress; } catch (_) { return false; } }) || cards.find(el => { try { return JSON.parse(el.dataset.address).isDefault; } catch (_) { return false; } }) || cards[0]);
       if (initial) selectAddress(initial);
+      else syncSavedAddressFields();
       form.addEventListener('input', event => {
-        if (applyingAddress || !selectedAddress || !/^(billing|shipping)_(state|city|postcode|address_1|address_2|country)$/.test(event.target.id)) return;
+        if (applyingAddress || !selectedAddress || event.target.closest('[data-rs-contact-completion]') || !/^(billing|shipping)_(state|city|postcode|address_1|address_2|country)$/.test(event.target.id)) return;
         selectedAddress = null;
         syncSavedAddressFields();
         $$('.rs-saved-address', savedList).forEach(el => { el.classList.remove('is-selected'); const radio = $('input', el); if (radio) radio.checked = false; });
@@ -761,12 +780,12 @@
           const body = document.createElement('span'); body.className = 'co-address-body';
           const title = document.createElement('b'); title.textContent = item.title;
           if (item.isDefault) { const badge = document.createElement('span'); badge.className = 'default-chip'; badge.textContent = 'پیش‌فرض'; title.appendChild(badge); }
-          const line = document.createElement('span'); line.className = 'co-address-text'; line.textContent = [item.province, item.city, item.address].filter(Boolean).join('، ');
+          const line = document.createElement('span'); line.className = 'co-address-text'; line.textContent = [item.province_label || item.province, item.city, item.address].filter(Boolean).join('، ');
           const meta = document.createElement('span'); meta.className = 'co-address-meta'; meta.textContent = [item.name, toFa(item.phone), item.postal ? 'کد پستی ' + toFa(item.postal) : ''].filter(Boolean).join(' — ');
           body.append(title, line, meta); label.append(radio, marker, body); savedList.appendChild(label);
           const empty = $('[data-rs-address-empty]', picker); if (empty) empty.hidden = true;
           selectAddress(label); toggleNew(false);
-          $$('[data-rs-new]', newPanel).forEach(el => { el.value = ''; });
+          $$('[data-rs-new]:not([type=hidden])', newPanel).forEach(el => { el.value = ''; });
           showToast(response.data.message || 'آدرس ثبت شد', 'i-check');
         } catch (error) { newError.textContent = error.message || 'ثبت آدرس ممکن نشد.'; newError.hidden = false; }
         finally { saveButton.disabled = false; }
@@ -868,6 +887,12 @@
     };
     next.addEventListener('click', () => {
       if (current === 0) {
+        if (picker?.dataset.rsRequiresAddress === '1' && !selectedAddress) { showToast('لطفاً یک آدرس ذخیره‌شده انتخاب یا آدرس جدید ثبت کنید.', 'i-info'); addButton?.focus(); return; }
+        if (picker) syncSavedAddressFields();
+        const state = $('#billing_state', form);
+        if (selectedAddress && state?.tagName === 'SELECT' && selectedAddress.province && !state.value) { state.focus(); showToast('استان این آدرس را از فهرست ووکامرس انتخاب کنید.', 'i-info'); return; }
+        const postcode = $('#billing_postcode', form);
+        if (postcode && !postcode.value.trim()) changeField(postcode, '0000000000');
         const wasClosed = billingDetails && !billingDetails.open;
         const shippingDetails = $('[data-rs-shipping-details]', form);
         const shippingWasClosed = shippingDetails && !shippingDetails.open;
@@ -901,7 +926,7 @@
       window.jQuery(document.body).on('updated_checkout', () => { syncShippingMessage(); syncDelivery(); updateReview(); });
       window.jQuery(document.body).on('checkout_error', () => {
         const invalid = $('.woocommerce-invalid', address);
-        if (invalid) { show(0); if (billingDetails && invalid.closest('[data-rs-billing-details]')) billingDetails.open = true; const shippingDetails = $('[data-rs-shipping-details]', form); if (shippingDetails && invalid.closest('[data-rs-shipping-details]')) shippingDetails.open = true; invalid.querySelector('input,select,textarea')?.focus(); return; }
+        if (invalid) { show(0); if (picker && invalid.closest('[data-rs-customer-fields]')) { const extra = $('[data-rs-contact-fields]', form), panel = $('[data-rs-contact-completion]', form); if (extra && panel) { extra.appendChild(invalid); panel.hidden = false; } } if (billingDetails && invalid.closest('[data-rs-billing-details]')) billingDetails.open = true; const shippingDetails = $('[data-rs-shipping-details]', form); if (shippingDetails && invalid.closest('[data-rs-shipping-details]')) shippingDetails.open = true; invalid.querySelector('input,select,textarea')?.focus(); return; }
         const badReceiver = recipientInvalid();
         if (badReceiver) { show(0); badReceiver.focus(); return; }
         if (deliveryMissing()) { show(1); $('[data-rs-slot-card] input', form)?.focus(); }
