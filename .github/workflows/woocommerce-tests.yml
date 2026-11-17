@@ -339,3 +339,57 @@ jobs:
           فایل `rangesadeghi-wordpress-2.2.6.zip` نسخه کامل قابل نصب قالب و فایل‌های `rangesadeghi-patch-2.2.6.zip` و `rangesadeghi-patch-2.2.6.json` پچ برای ارتقا از نسخه ۲.۲.۴ هستند؛ ZIP پچ را به‌عنوان پوسته نصب نکنید. ابتدا از سایت پشتیبان بگیرید و در محیط آزمایشی با افزونه‌ها و درگاه‌های خود بررسی کنید.
           NOTES
           gh release create v2.2.6 "$RUNNER_TEMP/release/rangesadeghi-wordpress-2.2.6.zip" "$RUNNER_TEMP/release/rangesadeghi-patch-2.2.6.zip" "$RUNNER_TEMP/release/rangesadeghi-patch-2.2.6.json" --target "$GITHUB_SHA" --title 'رنگ صادقی ۲.۲.۶' --notes-file "$RUNNER_TEMP/notes.md" --prerelease
+
+  publish-address-state-2-2-7:
+    needs: integration
+    if: github.event_name == 'push' && github.ref == 'refs/heads/arena/de8d4f39-rangesadeghi-theme'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Build and verify theme and patch
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/release"
+          git archive --format=zip --prefix=rangesadeghi/ --output="$RUNNER_TEMP/release/rangesadeghi-wordpress-2.2.7.zip" "$GITHUB_SHA" -- \
+            app bootstrap config resources assets woocommerce 404.php archive.php comments.php footer.php \
+            front-page.php functions.php header.php home.php index.php page.php rtl.css screenshot.png \
+            search.php single.php style.css styles.css pages.css home.css template-about.php \
+            template-categories.php template-contact.php template-order-tracking.php template-stores.php \
+            theme.json woocommerce.php WORDPRESS.md
+          python3 tools/make-patch.py --version 2.2.7 --min-version 2.2.6 \
+            --files style.css app/Providers/WooCommerceServiceProvider.php resources/css/wp-compat.css resources/js/theme.js resources/views/woocommerce/my-account.blade.php woocommerce/checkout/form-billing.php \
+            --notes 'همگام‌سازی استان و آدرس در تسویه حساب' --out-dir "$RUNNER_TEMP/release"
+          python3 - <<'PY'
+          import os, zipfile, json, hashlib, base64, subprocess
+          base = os.path.join(os.environ['RUNNER_TEMP'], 'release')
+          expected = {'resources/js/theme.js', 'app/Providers/WooCommerceServiceProvider.php', 'resources/views/woocommerce/my-account.blade.php', 'style.css', 'woocommerce/checkout/form-billing.php', 'resources/css/wp-compat.css'}
+          with zipfile.ZipFile(os.path.join(base, 'rangesadeghi-wordpress-2.2.7.zip')) as full, zipfile.ZipFile(os.path.join(base, 'rangesadeghi-patch-2.2.7.zip')) as patch:
+              assert full.testzip() is None and patch.testzip() is None
+              assert b'Version: 2.2.7' in full.read('rangesadeghi/style.css')
+              manifest = json.loads(patch.read('patch.json'))
+              bundle = json.load(open(os.path.join(base, 'rangesadeghi-patch-2.2.7.json')))
+              assert manifest['min_version'] == '2.2.6' and manifest['target_version'] == '2.2.7'
+              assert set(manifest['files']) == expected
+              for name, meta in manifest['files'].items():
+                  data = patch.read('files/' + name)
+                  assert data == full.read('rangesadeghi/' + name) == subprocess.check_output(['git', 'show', os.environ['GITHUB_SHA'] + ':' + name])
+                  assert hashlib.sha256(data).hexdigest() == meta['sha256']
+                  assert data == base64.b64decode(bundle['files'][name]['content_base64'])
+          PY
+      - name: Publish tested release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/notes.md" <<'NOTES'
+          ## قالب رنگ صادقی ۲.۲.۷
+
+          فیلدهای اصلی اطلاعات سفارش برای کاربران واردشده در پس‌زمینه با آدرس انتخاب‌شده همگام می‌شوند. استان آدرس جدید از فهرست ووکامرس انتخاب می‌شود و مقدار واقعی استان برای محاسبه روش‌های ارسال استفاده می‌شود. در نبود کد پستی مقدار 0000000000 در تسویه و سفارش ثبت می‌شود. فیلدهای ضروری ناقص و فیلدهای افزونه‌ها برای تکمیل در دسترس می‌مانند و مهمانان همچنان می‌توانند آدرس وارد کنند. این مقدار جایگزین، کد پستی واقعی نیست و ممکن است بر روش‌های ارسال محدود به کد پستی اثر بگذارد.
+
+          فایل `rangesadeghi-wordpress-2.2.7.zip` نسخه کامل قالب است. فایل‌های `rangesadeghi-patch-2.2.7.zip` و `rangesadeghi-patch-2.2.7.json` پچ ارتقا از نسخه ۲.۲.۶ هستند و ZIP پچ فایل نصب پوسته نیست. ابتدا از سایت نسخه پشتیبان تهیه و در محیط آزمایشی با مناطق ارسال و افزونه‌های سایت بررسی کنید.
+          NOTES
+          gh release create v2.2.7 "$RUNNER_TEMP/release/rangesadeghi-wordpress-2.2.7.zip" "$RUNNER_TEMP/release/rangesadeghi-patch-2.2.7.zip" "$RUNNER_TEMP/release/rangesadeghi-patch-2.2.7.json" --target "$GITHUB_SHA" --title 'رنگ صادقی ۲.۲.۷' --notes-file "$RUNNER_TEMP/notes.md" --prerelease

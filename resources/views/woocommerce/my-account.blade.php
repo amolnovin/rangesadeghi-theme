@@ -122,7 +122,7 @@
               <div class="account-cards">
                 <article class="mini-card">
                   <h3><svg><use href="#i-pin"/></svg>آدرس پیش‌فرض</h3>
-                  <p>{{ !empty($savedAddresses[0]) ? ($savedAddresses[0]['province'] . '، ' . $savedAddresses[0]['city'] . '، ' . $savedAddresses[0]['address']) : 'هنوز آدرسی ثبت نکرده‌اید.' }}</p>
+                  <p>{{ !empty($savedAddresses[0]) ? (($savedAddresses[0]['province_label'] ?? $savedAddresses[0]['province']) . '، ' . $savedAddresses[0]['city'] . '، ' . $savedAddresses[0]['address']) : 'هنوز آدرسی ثبت نکرده‌اید.' }}</p>
                   <button class="text-link" type="button" data-account-tab="addresses">مدیریت آدرس‌ها <svg><use href="#i-chevron-left"/></svg></button>
                 </article>
                 <article class="mini-card">
@@ -191,7 +191,7 @@
                       @if(!empty($addr['isDefault']))<span class="default-chip">پیش‌فرض</span>@endif
                       <b>{{ $addr['title'] }}</b>
                     </header>
-                    <p>{{ $addr['province'] }}، {{ $addr['city'] }}، {{ $addr['address'] }}</p>
+                    <p>{{ $addr['province_label'] ?? $addr['province'] }}، {{ $addr['city'] }}، {{ $addr['address'] }}</p>
                     <footer>
                       <span><bdo dir="ltr">{{ rs_fa($addr['phone']) }}</bdo></span>
                       <button type="button" data-delete-address="{{ $addr['id'] }}"><svg><use href="#i-trash"/></svg>حذف</button>

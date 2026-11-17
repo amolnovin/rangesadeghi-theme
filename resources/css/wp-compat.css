@@ -218,3 +218,9 @@ body.admin-bar .main-header.is-sticky {
 .rs-native-checkout .rs-order-contact { margin-top:16px; }
 .rs-native-checkout .rs-order-contact h3 { font-size:14px; }
 .rs-native-checkout .rs-saved-field { display:none !important; }
+
+/* Keep WooCommerce inputs enabled and submitted while the account address drives them. */
+.rs-native-checkout.rs-steps-enabled .rs-order-contact { display:none; }
+.rs-native-checkout .rs-contact-completion { margin-top:16px; }
+.rs-native-checkout .rs-contact-completion h3 { font-size:14px; }
+.rs-native-checkout [data-rs-contact-completion][hidden] { display:none; }
