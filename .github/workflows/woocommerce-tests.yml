@@ -231,3 +231,57 @@ jobs:
           فایل `rangesadeghi-wordpress-2.2.4.zip` نسخه کامل قابل نصب قالب و فایل‌های `rangesadeghi-patch-2.2.4.zip` و `rangesadeghi-patch-2.2.4.json` پچ برای ارتقا از نسخه ۲.۲.۳ هستند؛ ZIP پچ را به‌عنوان پوسته نصب نکنید. پیش از نصب از قالب و پایگاه داده پشتیبان بگیرید و ابتدا روی محیط آزمایشی با تنظیمات و افزونه‌های سایت خود بررسی کنید.
           NOTES
           gh release create v2.2.4 "$RUNNER_TEMP/release/rangesadeghi-wordpress-2.2.4.zip" "$RUNNER_TEMP/release/rangesadeghi-patch-2.2.4.zip" "$RUNNER_TEMP/release/rangesadeghi-patch-2.2.4.json" --target "$GITHUB_SHA" --title 'رنگ صادقی ۲.۲.۴' --notes-file "$RUNNER_TEMP/notes.md" --prerelease
+
+  publish-delivery-2-2-5:
+    needs: integration
+    if: github.event_name == 'push' && github.ref == 'refs/heads/arena/6f7c3ed5-rangesadeghi-theme'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Build and verify theme and patch
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/release"
+          git archive --format=zip --prefix=rangesadeghi/ --output="$RUNNER_TEMP/release/rangesadeghi-wordpress-2.2.5.zip" "$GITHUB_SHA" -- \
+            app bootstrap config resources assets woocommerce 404.php archive.php comments.php footer.php \
+            front-page.php functions.php header.php home.php index.php page.php rtl.css screenshot.png \
+            search.php single.php style.css styles.css pages.css home.css template-about.php \
+            template-categories.php template-contact.php template-order-tracking.php template-stores.php \
+            theme.json woocommerce.php WORDPRESS.md
+          python3 tools/make-patch.py --version 2.2.5 --min-version 2.2.4 \
+            --files style.css app/Providers/WooCommerceServiceProvider.php app/Providers/AdminServiceProvider.php app/View/Composers/CheckoutCartComposer.php app/WooCommerce/Shipping/StoreCourier.php app/WooCommerce/Shipping/StorePickup.php config/defaults.php resources/css/wp-compat.css resources/js/theme.js resources/views/admin/settings.blade.php resources/views/woocommerce/order-details.blade.php woocommerce/checkout/form-billing.php woocommerce/checkout/form-checkout.php woocommerce/checkout/form-shipping.php \
+            --notes 'بازنگری آدرس و روش‌های ارسال' --out-dir "$RUNNER_TEMP/release"
+          python3 - <<'PY'
+          import os, zipfile, json, hashlib, base64, subprocess
+          base = os.path.join(os.environ['RUNNER_TEMP'], 'release')
+          expected = {'app/Providers/AdminServiceProvider.php', 'resources/css/wp-compat.css', 'resources/views/admin/settings.blade.php', 'resources/js/theme.js', 'woocommerce/checkout/form-shipping.php', 'resources/views/woocommerce/order-details.blade.php', 'app/View/Composers/CheckoutCartComposer.php', 'config/defaults.php', 'app/WooCommerce/Shipping/StorePickup.php', 'woocommerce/checkout/form-billing.php', 'app/Providers/WooCommerceServiceProvider.php', 'app/WooCommerce/Shipping/StoreCourier.php', 'woocommerce/checkout/form-checkout.php', 'style.css'}
+          with zipfile.ZipFile(os.path.join(base, 'rangesadeghi-wordpress-2.2.5.zip')) as full, zipfile.ZipFile(os.path.join(base, 'rangesadeghi-patch-2.2.5.zip')) as patch:
+              assert full.testzip() is None and patch.testzip() is None
+              assert b'Version: 2.2.5' in full.read('rangesadeghi/style.css')
+              manifest = json.loads(patch.read('patch.json'))
+              bundle = json.load(open(os.path.join(base, 'rangesadeghi-patch-2.2.5.json')))
+              assert manifest['min_version'] == '2.2.4' and manifest['target_version'] == '2.2.5'
+              assert set(manifest['files']) == expected
+              for name, meta in manifest['files'].items():
+                  data = patch.read('files/' + name)
+                  assert data == full.read('rangesadeghi/' + name) == subprocess.check_output(['git', 'show', os.environ['GITHUB_SHA'] + ':' + name])
+                  assert hashlib.sha256(data).hexdigest() == meta['sha256']
+                  assert data == base64.b64decode(bundle['files'][name]['content_base64'])
+          PY
+      - name: Publish tested release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/notes.md" <<'NOTES'
+          ## قالب رنگ صادقی ۲.۲.۵
+
+          آدرس‌های جدید به فهرست حساب افزوده می‌شوند و کد پستی اجباری نیست. روش‌های پیک فروشگاه و تحویل حضوری به‌صورت نرخ واقعی ووکامرس در تنظیمات قالب قابل فعال‌سازی هستند؛ برای پیک فهرست شهرها را وارد کنید. هزینه‌ها بر حسب واحد پول ووکامرس هستند. انتخاب روز و بازه زمانی برای این دو روش الزامی و صرفاً درخواست است، نه رزرو یا تضمین ظرفیت. برای سایر روش‌ها، زمان تقریبی قابل تنظیم است و روش‌های ووکامرس حفظ می‌شوند.
+
+          فایل `rangesadeghi-wordpress-2.2.5.zip` نسخه کامل قابل نصب قالب و فایل‌های `rangesadeghi-patch-2.2.5.zip` و `rangesadeghi-patch-2.2.5.json` پچ برای ارتقا از نسخه ۲.۲.۴ هستند؛ ZIP پچ را به‌عنوان پوسته نصب نکنید. ابتدا از سایت پشتیبان بگیرید و در محیط آزمایشی با افزونه‌ها و درگاه‌های خود بررسی کنید.
+          NOTES
+          gh release create v2.2.5 "$RUNNER_TEMP/release/rangesadeghi-wordpress-2.2.5.zip" "$RUNNER_TEMP/release/rangesadeghi-patch-2.2.5.zip" "$RUNNER_TEMP/release/rangesadeghi-patch-2.2.5.json" --target "$GITHUB_SHA" --title 'رنگ صادقی ۲.۲.۵' --notes-file "$RUNNER_TEMP/notes.md" --prerelease

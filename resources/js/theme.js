@@ -687,6 +687,13 @@
       });
       applyingAddress = false;
     };
+    const syncSavedAddressFields = () => {
+      ['state', 'city', 'postcode', 'address_1', 'address_2'].forEach(key => {
+        const field = document.getElementById('billing_' + key);
+        const row = field?.closest('.form-row');
+        if (row) row.classList.toggle('rs-saved-field', !!selectedAddress && (!!field.value || !row.classList.contains('validate-required')));
+      });
+    };
     const selectAddress = label => {
       let saved;
       try { saved = JSON.parse(label.dataset.address); } catch (_) { return; }
@@ -698,6 +705,7 @@
         if (radio) radio.checked = selected;
       });
       applyAddress(saved);
+      syncSavedAddressFields();
       if (billingDetails) {
         billingDetails.open = true;
         const missing = $$('.validate-required input, .validate-required select, .validate-required textarea', billingDetails)
@@ -719,6 +727,7 @@
       form.addEventListener('input', event => {
         if (applyingAddress || !selectedAddress || !/^(billing|shipping)_(state|city|postcode|address_1|address_2|country)$/.test(event.target.id)) return;
         selectedAddress = null;
+        syncSavedAddressFields();
         $$('.rs-saved-address', savedList).forEach(el => { el.classList.remove('is-selected'); const radio = $('input', el); if (radio) radio.checked = false; });
       });
       $('#ship-to-different-address-checkbox', form)?.addEventListener('change', event => {

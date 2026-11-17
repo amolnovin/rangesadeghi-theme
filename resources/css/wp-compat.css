@@ -217,3 +217,4 @@ body.admin-bar .main-header.is-sticky {
 .rs-native-checkout [data-rs-slot-card][hidden],.rs-native-checkout [data-rs-eta-card][hidden] { display:none; }
 .rs-native-checkout .rs-order-contact { margin-top:16px; }
 .rs-native-checkout .rs-order-contact h3 { font-size:14px; }
+.rs-native-checkout .rs-saved-field { display:none !important; }

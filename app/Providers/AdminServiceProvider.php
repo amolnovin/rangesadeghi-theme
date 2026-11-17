@@ -222,6 +222,7 @@ final class AdminServiceProvider extends ServiceProvider
         if (!$options->importJson($json)) {
             wp_send_json_error(['message' => 'فایل JSON تنظیمات معتبر نیست.']);
         }
+        if (class_exists('WC_Cache_Helper')) \WC_Cache_Helper::get_transient_version('shipping', true);
         $this->app->make('patcher')->flushThemeCaches();
         wp_send_json_success(['message' => 'تنظیمات با موفقیت درون‌ریزی شد. صفحه در حال بارگذاری مجدد است…']);
     }
