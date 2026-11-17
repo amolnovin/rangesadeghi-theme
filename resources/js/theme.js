@@ -745,6 +745,10 @@
           const response = await wpAjax('rs_checkout_address_save', values);
           if (!response.success || !response.data?.address) throw new Error(response.data?.message || 'ثبت آدرس ممکن نشد.');
           const item = response.data.address;
+          // Once a first custom address exists the account page no longer shows the billing fallback.
+          if (item.isDefault) {
+            $$('.rs-saved-address', savedList).forEach(el => { if ($('input', el)?.value === 'billing-default') el.remove(); });
+          }
           const label = document.createElement('label');
           label.className = 'co-address rs-saved-address'; label.dataset.address = JSON.stringify(item);
           const radio = document.createElement('input'); radio.type = 'radio'; radio.name = 'rs_saved_address'; radio.value = item.id;
