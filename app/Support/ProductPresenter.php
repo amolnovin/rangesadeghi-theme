@@ -129,17 +129,35 @@ final class ProductPresenter
         if ($product->has_dimensions()) {
             $specs[] = ['ابعاد', rs_fa(wc_format_dimensions($product->get_dimensions(false)))];
         }
-        foreach ($product->get_attributes() as $attribute) {
-            if (!$attribute->get_visible()) {
+        foreach ($product->get_attributes() as $name => $attribute) {
+            // Simple/variable products contain WC_Product_Attribute objects;
+            // variations contain attribute-name => selected-value strings instead.
+            if ($attribute instanceof \WC_Product_Attribute) {
+                if (!$attribute->get_visible()) {
+                    continue;
+                }
+                $label = wc_attribute_label($attribute->get_name(), $product);
+                $values = $attribute->is_taxonomy()
+                    ? wc_get_product_terms($id, $attribute->get_name(), ['fields' => 'names'])
+                    : $attribute->get_options();
+                if (is_array($values) && $values !== []) {
+                    $specs[] = [$label, implode('، ', $values)];
+                }
                 continue;
             }
-            $label = wc_attribute_label($attribute->get_name());
-            $values = $attribute->is_taxonomy()
-                ? wc_get_product_terms($id, $attribute->get_name(), ['fields' => 'names'])
-                : $attribute->get_options();
-            if (!empty($values)) {
-                $specs[] = [$label, implode('، ', $values)];
+
+            if (!$product->is_type('variation') || !is_string($name) || !is_string($attribute) || $attribute === '') {
+                continue;
             }
+            $attributeName = str_starts_with($name, 'attribute_') ? substr($name, 10) : $name;
+            $value = $attribute;
+            if (taxonomy_exists($attributeName)) {
+                $term = get_term_by('slug', $attribute, $attributeName);
+                if ($term && !is_wp_error($term)) {
+                    $value = (string) $term->name;
+                }
+            }
+            $specs[] = [wc_attribute_label($attributeName, $product), $value];
         }
         $demoSpecs = get_post_meta($id, '_rs_demo_specs', true);
         if ($specs === [] && is_array($demoSpecs)) {

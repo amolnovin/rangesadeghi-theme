@@ -588,7 +588,7 @@ final class PatchManager
     public function flushThemeCaches(): void
     {
         if ($this->app->has('blade')) {
-            $this->app->make('blade')->flushCache();
+            $this->app->make('blade')->clearCache();
         }
         delete_transient('rs_frontpage_cache');
         if (function_exists('wp_cache_flush')) {
