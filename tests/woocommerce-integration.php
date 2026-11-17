@@ -181,7 +181,8 @@ rs_assert(count(WC()->cart->get_fees()) === 0 && !WC()->session->get('rs_gift_wr
 unset($_POST['post_data']);
 // Theme methods calculate real rates alongside zone rates, with city restriction.
 rs_app('options')->update(['shop' => ['courier_enabled' => true, 'courier_cities' => 'Los Angeles', 'courier_cost' => 120, 'pickup_enabled' => true, 'pickup_cost' => 30, 'delivery_slots_enabled' => true, 'delivery_slots' => 'Morning, Evening', 'delivery_days_ahead' => 6, 'shipping_eta_map' => "flat_rate:42=Three days"]]);
-WC_Cache_Helper::incr_transient_version('shipping');
+WC_Cache_Helper::get_transient_version('shipping', true);
+WC()->session->__unset('shipping_for_package_0');
 WC()->cart->calculate_shipping();
 $packages = WC()->shipping()->get_packages();
 rs_assert(isset($packages[0]['rates']['rs_store_courier'], $packages[0]['rates']['rs_store_pickup']), 'Theme rates not calculated');
