@@ -103,9 +103,19 @@ foreach (['rs-native-checkout', 'data-rs-checkout-panel="address"', 'data-rs-che
     rs_assert(str_contains($html, $part), 'Missing checkout component: ' . $part);
 }
 rs_assert(str_contains($html, 'name="payment_method"'), 'WooCommerce payment gateways not rendered: ' . implode(',', array_keys(WC()->payment_gateways()->get_available_payment_gateways())) . '; review: ' . substr(wp_strip_all_tags($html), -500));
+WC()->customer->set_shipping_country('US');
+WC()->customer->set_shipping_state('CA');
+WC()->customer->set_shipping_city('Los Angeles');
+WC()->customer->set_shipping_postcode('90001');
+WC()->customer->set_shipping_address_1('Test street');
+WC()->cart->calculate_shipping();
+$packages = WC()->shipping()->get_packages();
+rs_assert(!empty($packages[0]['rates']), 'Shipping zone did not calculate any real rate');
+WC()->session->set('chosen_shipping_methods', [array_key_first($packages[0]['rates'])]);
 $fragments = apply_filters('woocommerce_update_order_review_fragments', ['.existing' => 'preserved']);
 rs_assert(isset($fragments['.existing'], $fragments['.rs-checkout-summary-fragment']), 'Checkout fragments were not preserved or updated');
 rs_assert(str_contains($fragments['.rs-checkout-summary-fragment'], 'Integration test product'), 'Updated summary does not contain cart products');
+rs_assert(!str_contains($fragments['.rs-checkout-summary-fragment'], 'پس از انتخاب روش ارسال'), 'Chosen shipping rate missing from summary');
 // Optional gift fee uses the posted checkbox value, including an explicit unchecked value.
 $provider = rs_app()->make(App\Providers\WooCommerceServiceProvider::class);
 WC()->session->set('rs_gift_wrap', false);

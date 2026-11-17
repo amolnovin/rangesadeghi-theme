@@ -192,3 +192,7 @@ body.admin-bar .main-header.is-sticky {
   .rs-native-checkout .rs-fields-grid .form-row-wide { grid-column: auto; }
   .rs-native-checkout .rs-checkout-controls .btn { min-width: 0; flex: 1; }
 }
+
+.rs-native-checkout #customer_details > .col-1, .rs-native-checkout #customer_details > .col-2 { width: 100%; float: none; }
+.rs-native-checkout .woocommerce-shipping-methods li:has(input:checked) .rs-shipping-icon,
+.rs-native-checkout .woocommerce-shipping-methods li:has(input[type="hidden"]) .rs-shipping-icon { color: #fff; background: var(--accent); }

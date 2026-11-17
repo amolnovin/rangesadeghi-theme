@@ -682,6 +682,16 @@
       $$('.rs-saved-address', form).forEach(el => el.classList.toggle('is-selected', el === button));
     }));
     const syncShippingMessage = () => {
+      $$('.woocommerce-shipping-methods li', form).forEach(item => {
+        if (item.querySelector('.rs-shipping-icon')) return;
+        const label = item.querySelector('label');
+        if (!label) return;
+        const icon = document.createElement('span');
+        icon.className = 'co-option-icon rs-shipping-icon';
+        icon.setAttribute('aria-hidden', 'true');
+        icon.innerHTML = '<svg><use href="#i-truck"></use></svg>';
+        item.insertBefore(icon, label);
+      });
       const message = $('[data-rs-shipping-message]', form);
       if (message) message.hidden = current !== 1 || !!$('.woocommerce-checkout-review-order-table .shipping', form);
     };
