@@ -12,17 +12,8 @@ defined('ABSPATH') || exit;
             <p class="form-row"><label for="rs-receiver-phone">شماره موبایل گیرنده <span class="required">*</span></label><input class="input-text" id="rs-receiver-phone" name="rs_receiver_phone" type="tel" inputmode="tel" dir="ltr" value="<?php echo esc_attr(sanitize_text_field(wp_unslash($_POST['rs_receiver_phone'] ?? ''))); ?>" /></p>
         </div>
     <?php endif; ?>
-    <?php if (true === WC()->cart->needs_shipping_address()) : ?>
-        <details class="rs-shipping-details" data-rs-shipping-details <?php echo apply_filters('woocommerce_ship_to_different_address_checked', 'shipping' === get_option('woocommerce_ship_to_destination') ? 1 : 0) ? 'open' : ''; ?>>
-            <summary>تنظیمات نشانی متفاوت ووکامرس</summary>
-            <h3 id="ship-to-different-address"><label class="co-check"><input id="ship-to-different-address-checkbox" class="woocommerce-form__input woocommerce-form__input-checkbox input-checkbox" <?php checked(apply_filters('woocommerce_ship_to_different_address_checked', 'shipping' === get_option('woocommerce_ship_to_destination') ? 1 : 0), 1); ?> type="checkbox" name="ship_to_different_address" value="1" /><span class="co-check-box"><svg><use href="#i-check"/></svg></span><span><?php esc_html_e('Ship to a different address?', 'woocommerce'); ?></span></label></h3>
-            <div class="shipping_address co-address-form">
-                <?php do_action('woocommerce_before_checkout_shipping_form', $checkout); ?>
-                <div class="woocommerce-shipping-fields__field-wrapper rs-fields-grid"><?php foreach ($checkout->get_checkout_fields('shipping') as $key => $field) woocommerce_form_field($key, $field, $checkout->get_value($key)); ?></div>
-                <?php do_action('woocommerce_after_checkout_shipping_form', $checkout); ?>
-            </div>
-        </details>
-    <?php endif; ?>
+    <?php do_action('woocommerce_before_checkout_shipping_form', $checkout); ?>
+    <?php do_action('woocommerce_after_checkout_shipping_form', $checkout); ?>
 </div>
 <div class="woocommerce-additional-fields co-card rs-order-notes">
     <header class="co-card-head"><span class="co-card-icon"><svg><use href="#i-box"/></svg></span><div class="co-card-title"><h2>توضیحات سفارش</h2><p>در صورت نیاز، توضیحات مربوط به سفارش را بنویسید.</p></div></header>

@@ -179,7 +179,7 @@ jobs:
 
   publish-address-checkout-2-2-4:
     needs: integration
-    if: github.event_name == 'push' && github.ref == 'refs/heads/arena/6f7c3ed5-rangesadeghi-theme'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/arena/6f7c3ed5-rangesadeghi-theme' && github.sha == 'ab3d2934002dc8238a82d60f7a6313337e2ee4d1'
     runs-on: ubuntu-latest
     permissions:
       contents: write

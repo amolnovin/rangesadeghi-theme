@@ -99,7 +99,7 @@ $checkout = WC()->checkout();
 ob_start();
 wc_get_template('checkout/form-checkout.php', ['checkout' => $checkout]);
 $html = (string) ob_get_clean();
-foreach (['rs-native-checkout', 'data-rs-checkout-panel="address"', 'data-rs-checkout-panel="review"', 'billing_first_name', 'woocommerce-checkout-review-order', 'woocommerce-process-checkout-nonce', 'place_order', 'rs-checkout-summary-fragment', 'Variable integration product', 'data-rs-saved-list', 'Test Street', 'rs-payment-option', 'data-rs-coupon-card', 'rs_delivery_day', 'rs_official_invoice', 'rs_gift_wrap', 'order_comments', 'rs-receiver-self', 'rs-receiver-name', 'rs-receiver-phone', 'data-rs-new-address', 'name="rs_saved_address"', '#addresses'] as $part) {
+foreach (['rs-native-checkout', 'data-rs-checkout-panel="address"', 'data-rs-checkout-panel="review"', 'billing_first_name', 'woocommerce-checkout-review-order', 'woocommerce-process-checkout-nonce', 'place_order', 'rs-checkout-summary-fragment', 'Variable integration product', 'data-rs-saved-list', 'Test Street', 'rs-payment-option', 'data-rs-coupon-card', 'name="rs_delivery_day"', 'rs_official_invoice', 'rs_gift_wrap', 'order_comments', 'rs-receiver-self', 'rs-receiver-name', 'rs-receiver-phone', 'data-rs-new-address', 'name="rs_saved_address"', '#addresses'] as $part) {
     rs_assert(str_contains($html, $part), 'Missing checkout component: ' . $part);
 }
 rs_assert(str_contains($html, 'name="payment_method"'), 'WooCommerce payment gateways not rendered: ' . implode(',', array_keys(WC()->payment_gateways()->get_available_payment_gateways())) . '; review: ' . substr(wp_strip_all_tags($html), -500));
@@ -129,6 +129,15 @@ $addresses = get_user_meta($user->ID, '_rs_saved_addresses', true);
 rs_assert(count($addresses) === 2 && $addresses[1]['id'] === $rsNew['id'], 'Checkout address not stored in account list');
 $accountAfter = rs_view('woocommerce.my-account', ['dataPage' => 'account']);
 rs_assert(str_contains($accountAfter, '123 Real Street'), 'Checkout address not visible in account page');
+// A first custom address must not discard the previously visible WooCommerce default.
+$originalAddresses = get_user_meta($user->ID, '_rs_saved_addresses', true);
+update_user_meta($user->ID, '_rs_saved_addresses', []);
+update_user_meta($user->ID, 'billing_address_1', 'Old Default Street');
+$firstCustom = $provider->saveCheckoutAddress($user->ID, array_merge($newAddress, ['postal' => '']));
+$withDefault = get_user_meta($user->ID, '_rs_saved_addresses', true);
+rs_assert(is_array($firstCustom) && !$firstCustom['isDefault'] && count($withDefault) === 2 && $withDefault[0]['address'] === 'Old Default Street', 'First new address replaced the default');
+rs_assert(get_user_meta($user->ID, 'billing_address_1', true) === 'Old Default Street', 'First address save modified billing profile');
+update_user_meta($user->ID, '_rs_saved_addresses', $originalAddresses);
 $unauthorized = $provider->saveCheckoutAddress(0, $newAddress);
 rs_assert(is_wp_error($unauthorized), 'Anonymous address storage accepted');
 for ($i = 0; $i < 3; $i++) rs_assert(is_array($provider->saveCheckoutAddress($user->ID, $newAddress)), 'Could not populate account address list');
@@ -170,21 +179,32 @@ $_POST['post_data'] = 'rs_gift_wrap=0';
 WC()->cart->calculate_totals();
 rs_assert(count(WC()->cart->get_fees()) === 0 && !WC()->session->get('rs_gift_wrap'), 'Unchecked gift option left a stale fee');
 unset($_POST['post_data']);
-// Delivery preferences are requests, validated against the configured choices.
-wc_clear_notices();
-$_POST['rs_delivery_day'] = '2020-01-01';
-$_POST['rs_delivery_slot'] = 'not-a-configured-slot';
+// Theme methods calculate real rates alongside zone rates, with city restriction.
+rs_app('options')->update(['shop' => ['courier_enabled' => true, 'courier_cities' => 'Los Angeles', 'courier_cost' => 120, 'pickup_enabled' => true, 'pickup_cost' => 30, 'delivery_slots_enabled' => true, 'delivery_slots' => 'Morning, Evening', 'delivery_days_ahead' => 6, 'shipping_eta_map' => "flat_rate:42=Three days"]]);
+WC_Cache_Helper::incr_transient_version('shipping');
+WC()->cart->calculate_shipping();
+$packages = WC()->shipping()->get_packages();
+rs_assert(isset($packages[0]['rates']['rs_store_courier'], $packages[0]['rates']['rs_store_pickup']), 'Theme rates not calculated');
+rs_assert((float) $packages[0]['rates']['rs_store_courier']->get_cost() === 120.0, 'Courier rate cost not applied');
+$courier = new App\WooCommerce\Shipping\StoreCourier();
+$elsewhere = $packages[0]; $elsewhere['destination']['city'] = 'Elsewhere';
+rs_assert(!$courier->is_available($elsewhere), 'Courier leaked to another city');
+rs_assert(empty($checkout->get_checkout_fields('billing')['billing_postcode']['required']), 'Postcode must be optional');
+// Mandatory validated day and slot only for theme delivery methods.
+$_POST['shipping_method'] = ['rs_store_pickup'];
+wc_clear_notices(); $provider->validateDeliveryPreference();
+rs_assert(wc_notice_count('error') > 0, 'Missing scheduled time accepted');
+wc_clear_notices(); $_POST['rs_delivery_day'] = '2020-01-01'; $_POST['rs_delivery_slot'] = 'Morning'; $provider->validateDeliveryPreference();
+rs_assert(wc_notice_count('error') > 0, 'Past scheduled day accepted');
+wc_clear_notices(); $_POST['rs_delivery_day'] = wp_date('Y-m-d', time() + 86400 * 2); $_POST['rs_delivery_slot'] = 'Morning'; $_POST['rs_official_invoice'] = '1';
 $provider->validateDeliveryPreference();
-rs_assert(wc_notice_count('error') > 0, 'Invalid delivery preference accepted');
-wc_clear_notices();
-$_POST['rs_delivery_day'] = wp_date('Y-m-d', time() + 86400 * 2);
-$_POST['rs_delivery_slot'] = trim(explode(',', (string) rs_option('shop.delivery_slots', ''))[0]);
-$_POST['rs_official_invoice'] = '1';
-$provider->validateDeliveryPreference();
-rs_assert(wc_notice_count('error') === 0, 'Valid delivery preference rejected');
+rs_assert(wc_notice_count('error') === 0, 'Valid scheduled time rejected');
 $provider->saveCustomOrderMeta($order, []);
-rs_assert($order->get_meta('_rs_delivery_day') === $_POST['rs_delivery_day'] && $order->get_meta('_rs_official_invoice') === 'yes', 'Order preference metadata not saved');
-unset($_POST['rs_delivery_day'], $_POST['rs_delivery_slot'], $_POST['rs_official_invoice']);
+rs_assert($order->get_meta('_rs_delivery_day') === $_POST['rs_delivery_day'] && $order->get_meta('_rs_delivery_slot') === 'Morning', 'Order preference metadata not saved');
+$_POST['shipping_method'] = [array_key_first(array_filter($packages[0]['rates'], static fn($r) => $r->get_method_id() === 'flat_rate'))];
+$provider->saveCustomOrderMeta($order, []);
+rs_assert($order->get_meta('_rs_delivery_day') === '', 'Stale time saved for another method');
+$_POST = [];
 // Render genuine WooCommerce shipping rates and their extension hook.
 $hookCalled = false;
 add_action('woocommerce_after_shipping_rate', static function () use (&$hookCalled) { $hookCalled = true; }, 10, 2);

@@ -745,10 +745,6 @@
           const response = await wpAjax('rs_checkout_address_save', values);
           if (!response.success || !response.data?.address) throw new Error(response.data?.message || 'ثبت آدرس ممکن نشد.');
           const item = response.data.address;
-          // Once a first custom address exists the account page no longer shows the billing fallback.
-          if (item.isDefault) {
-            $$('.rs-saved-address', savedList).forEach(el => { if ($('input', el)?.value === 'billing-default') el.remove(); });
-          }
           const label = document.createElement('label');
           label.className = 'co-address rs-saved-address'; label.dataset.address = JSON.stringify(item);
           const radio = document.createElement('input'); radio.type = 'radio'; radio.name = 'rs_saved_address'; radio.value = item.id;
@@ -804,6 +800,23 @@
       const message = $('[data-rs-shipping-message]', form);
       if (message) message.hidden = current !== 1 || !!$('.woocommerce-checkout-review-order-table .shipping', form);
     };
+    const selectedRates = () => $$('input[name^="shipping_method"]', form).filter(el => el.type === 'hidden' || el.checked);
+    const syncDelivery = () => {
+      const infos = selectedRates().map(el => el.closest('li')?.querySelector('.rs-rate-info')).filter(Boolean);
+      const scheduled = infos.some(el => ['rs_store_courier', 'rs_store_pickup'].includes(el.dataset.rsRateKind));
+      const card = $('[data-rs-slot-card]', form), eta = $('[data-rs-eta-card]', form), text = $('[data-rs-eta-text]', form);
+      if (card) card.hidden = !scheduled;
+      const pickup = $('[data-rs-pickup-address]', form);
+      if (pickup) pickup.hidden = !infos.some(el => el.dataset.rsRateKind === 'rs_store_pickup') || !pickup.textContent.trim();
+      const others = infos.filter(el => !['rs_store_courier', 'rs_store_pickup'].includes(el.dataset.rsRateKind));
+      if (eta) eta.hidden = !others.length;
+      if (text) text.textContent = others.map(el => el.dataset.rsRateEta || 'زمان تحویل هنوز توسط فروشگاه تعیین نشده است.').join('؛ ');
+      $$('[name="rs_delivery_day"], [name="rs_delivery_slot"]', form).forEach(el => el.closest('label')?.classList.toggle('is-selected', el.checked));
+    };
+    const deliveryMissing = () => {
+      const card = $('[data-rs-slot-card]', form);
+      return card && !card.hidden && (!$('[name="rs_delivery_day"]:checked', card) || !$('[name="rs_delivery_slot"]:checked', card));
+    };
     const updateReview = () => {
       const different = $('#ship-to-different-address-checkbox', form)?.checked;
       const prefix = different ? 'shipping_' : 'billing_';
@@ -841,7 +854,7 @@
         const button = $('[data-rs-goto]', el);
         if (button) button.disabled = i < 0 || i >= current;
       });
-      syncShippingMessage(); updateReview();
+      syncShippingMessage(); syncDelivery(); updateReview();
       if (refresh && window.jQuery) window.jQuery(document.body).trigger('update_checkout');
     };
     next.addEventListener('click', () => {
@@ -860,10 +873,9 @@
         if (missingReceiver) { missingReceiver.focus(); showToast('نام و شماره تماس معتبر گیرنده را وارد کنید.', 'i-info'); return; }
       }
       if (current === 1) {
-        const day = $('#rs_delivery_day', form), slot = $('#rs_delivery_slot', form);
-        if (day && slot && ((!!day.value !== !!slot.value) || (day.value && day.min && day.value < day.min))) {
-          (day.value ? slot : day).focus();
-          showToast('روز و بازه ترجیحی را کامل کنید یا هر دو را خالی بگذارید.', 'i-info');
+        if (deliveryMissing()) {
+          $('[data-rs-slot-card] input', form)?.focus();
+          showToast('روز و بازه تحویل را انتخاب کنید.', 'i-info');
           return;
         }
       }
@@ -875,16 +887,15 @@
     $('[name="rs_gift_wrap"][type="checkbox"]', form)?.addEventListener('change', () => { if (window.jQuery) window.jQuery(document.body).trigger('update_checkout'); });
     const finalReview = $('[data-rs-final-review]', form);
     if (finalReview) finalReview.hidden = false;
-    form.addEventListener('change', updateReview);
+    form.addEventListener('change', () => { syncDelivery(); updateReview(); });
     if (window.jQuery) {
-      window.jQuery(document.body).on('updated_checkout', () => { syncShippingMessage(); updateReview(); });
+      window.jQuery(document.body).on('updated_checkout', () => { syncShippingMessage(); syncDelivery(); updateReview(); });
       window.jQuery(document.body).on('checkout_error', () => {
         const invalid = $('.woocommerce-invalid', address);
         if (invalid) { show(0); if (billingDetails && invalid.closest('[data-rs-billing-details]')) billingDetails.open = true; const shippingDetails = $('[data-rs-shipping-details]', form); if (shippingDetails && invalid.closest('[data-rs-shipping-details]')) shippingDetails.open = true; invalid.querySelector('input,select,textarea')?.focus(); return; }
         const badReceiver = recipientInvalid();
         if (badReceiver) { show(0); badReceiver.focus(); return; }
-        const day = $('#rs_delivery_day', form), slot = $('#rs_delivery_slot', form);
-        if (day && slot && ((!!day.value !== !!slot.value) || (day.value && day.min && day.value < day.min))) { show(1); day.focus(); }
+        if (deliveryMissing()) { show(1); $('[data-rs-slot-card] input', form)?.focus(); }
 
       });
     }

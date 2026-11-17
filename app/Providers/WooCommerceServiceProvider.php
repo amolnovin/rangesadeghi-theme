@@ -32,6 +32,9 @@ final class WooCommerceServiceProvider extends ServiceProvider
         add_action('woocommerce_checkout_create_order', [$this, 'saveCustomOrderMeta'], 10, 2);
         add_action('woocommerce_checkout_process', [$this, 'validateDeliveryPreference']);
         add_action('woocommerce_checkout_process', [$this, 'validateCheckoutRecipient']);
+        add_filter('woocommerce_checkout_fields', [$this, 'checkoutOptionalPostcode'], 999);
+        add_filter('woocommerce_shipping_methods', [$this, 'registerThemeShippingMethods']);
+        add_action('woocommerce_after_shipping_rate', [$this, 'shippingRateDetails'], 10, 2);
 
         // Keep the sidebar in sync with WooCommerce's checkout AJAX updates.
         add_filter('woocommerce_update_order_review_fragments', [$this, 'checkoutSummaryFragment']);
@@ -67,6 +70,36 @@ final class WooCommerceServiceProvider extends ServiceProvider
         foreach ($authAjax as $action => $handler) {
             add_action("wp_ajax_{$action}", $handler);
         }
+    }
+
+    public function checkoutOptionalPostcode(array $fields): array
+    {
+        foreach (['billing', 'shipping'] as $section) {
+            if (isset($fields[$section][$section . '_postcode'])) $fields[$section][$section . '_postcode']['required'] = false;
+        }
+        return $fields;
+    }
+
+    public function registerThemeShippingMethods(array $methods): array
+    {
+        $methods['rs_store_courier'] = \App\WooCommerce\Shipping\StoreCourier::class;
+        $methods['rs_store_pickup'] = \App\WooCommerce\Shipping\StorePickup::class;
+        return $methods;
+    }
+
+    public function shippingRateDetails($rate, $index): void
+    {
+        $id = (string) $rate->get_id();
+        $kind = (string) $rate->get_method_id();
+        $map = (string) rs_option('shop.shipping_eta_map', '');
+        $eta = '';
+        foreach (preg_split('/\r\n|\r|\n/', $map) ?: [] as $line) {
+            $parts = explode('=', $line, 2);
+            if (count($parts) === 2 && trim($parts[0]) === $id) { $eta = trim($parts[1]); break; }
+            if (count($parts) === 2 && trim($parts[0]) === $kind) $eta = trim($parts[1]);
+        }
+        if ($eta === '') $eta = trim((string) rs_option('shop.shipping_eta_default', ''));
+        echo '<span class="rs-rate-info" data-rs-rate-kind="' . esc_attr($kind) . '" data-rs-rate-eta="' . esc_attr($eta) . '" hidden></span>';
     }
 
     public function checkoutSummaryFragment(array $fragments): array
@@ -235,16 +268,29 @@ final class WooCommerceServiceProvider extends ServiceProvider
         }
     }
 
+    private function usesScheduledShipping(): bool
+    {
+        if (!WC()->cart || !WC()->cart->needs_shipping()) return false;
+        $chosen = isset($_POST['shipping_method']) && is_array($_POST['shipping_method']) ? wc_clean(wp_unslash($_POST['shipping_method'])) : (WC()->session ? WC()->session->get('chosen_shipping_methods', []) : []);
+        foreach (WC()->shipping()->get_packages() as $index => $package) {
+            $id = $chosen[$index] ?? '';
+            $rate = $package['rates'][$id] ?? null;
+            if ($rate && in_array($rate->get_method_id(), ['rs_store_courier', 'rs_store_pickup'], true)) return true;
+        }
+        return false;
+    }
+
     public function validateDeliveryPreference(): void
     {
-        if (!WC()->cart || !WC()->cart->needs_shipping() || !rs_option('shop.delivery_slots_enabled', true)) return;
+        if (!$this->usesScheduledShipping()) return;
         $day = sanitize_text_field((string) wp_unslash($_POST['rs_delivery_day'] ?? ''));
         $slot = sanitize_text_field((string) wp_unslash($_POST['rs_delivery_slot'] ?? ''));
-        if ($day === '' && $slot === '') return;
         $slots = array_filter(array_map('trim', explode(',', (string) rs_option('shop.delivery_slots', ''))));
-        $date = \DateTimeImmutable::createFromFormat('!Y-m-d', $day);
-        if (!$date || $date->format('Y-m-d') !== $day || $day < wp_date('Y-m-d') || !in_array($slot, $slots, true)) {
-            wc_add_notice('لطفاً روز و بازه ترجیحی معتبر انتخاب کنید یا هر دو را خالی بگذارید.', 'error');
+        $today = new \DateTimeImmutable('today', wp_timezone());
+        $days = max(1, min(30, (int) rs_option('shop.delivery_days_ahead', 6)));
+        $date = \DateTimeImmutable::createFromFormat('!Y-m-d', $day, wp_timezone());
+        if (!$date || $date->format('Y-m-d') !== $day || $date < $today || $date >= $today->modify('+' . $days . ' days') || !in_array($slot, $slots, true)) {
+            wc_add_notice('لطفاً روز و بازه معتبر تحویل را انتخاب کنید.', 'error');
         }
     }
 
@@ -270,12 +316,13 @@ final class WooCommerceServiceProvider extends ServiceProvider
         $rcName = sanitize_text_field((string) wp_unslash($_POST['rs_receiver_name'] ?? ''));
         $rcPhone = Persian::toEn(sanitize_text_field((string) wp_unslash($_POST['rs_receiver_phone'] ?? '')));
 
-        if (rs_option('shop.delivery_slots_enabled', true) && WC()->cart && WC()->cart->needs_shipping() && $day !== '') {
+        if ($this->usesScheduledShipping() && $day !== '') {
             $order->update_meta_data('_rs_delivery_day', $day);
         }
-        if (rs_option('shop.delivery_slots_enabled', true) && WC()->cart && WC()->cart->needs_shipping() && $slot !== '') {
+        if ($this->usesScheduledShipping() && $slot !== '') {
             $order->update_meta_data('_rs_delivery_slot', $slot);
         }
+        if (!$this->usesScheduledShipping()) { $order->delete_meta_data('_rs_delivery_day'); $order->delete_meta_data('_rs_delivery_slot'); }
         $order->update_meta_data('_rs_gift_wrap', $gift);
         $order->update_meta_data('_rs_official_invoice', $invoice);
 
@@ -619,6 +666,10 @@ final class WooCommerceServiceProvider extends ServiceProvider
         }
         $saved = get_user_meta($userId, '_rs_saved_addresses', true);
         $saved = is_array($saved) ? array_values($saved) : [];
+        if (!$saved && ($billingAddress = (string) get_user_meta($userId, 'billing_address_1', true)) !== '') {
+            $user = get_userdata($userId);
+            $saved[] = ['id' => 'billing-default', 'title' => 'آدرس پیش‌فرض', 'name' => trim((string) get_user_meta($userId, 'billing_first_name', true) . ' ' . (string) get_user_meta($userId, 'billing_last_name', true)) ?: ($user ? $user->display_name : ''), 'phone' => (string) get_user_meta($userId, 'billing_phone', true), 'province' => (string) get_user_meta($userId, 'billing_state', true), 'city' => (string) get_user_meta($userId, 'billing_city', true), 'postal' => (string) get_user_meta($userId, 'billing_postcode', true), 'address' => $billingAddress, 'address2' => (string) get_user_meta($userId, 'billing_address_2', true), 'isDefault' => true];
+        }
         if (count($saved) >= 5) return new \WP_Error('address_limit', 'حداکثر ۵ آدرس ذخیره می‌شود؛ ابتدا یکی را در حساب کاربری حذف کنید.');
         $newItem = ['id' => 'addr-' . wp_generate_uuid4(), 'title' => $title, 'name' => $name, 'phone' => $phone, 'province' => $province, 'city' => $city, 'postal' => $postal, 'address' => $address, 'isDefault' => $saved === []];
         $saved[] = $newItem;

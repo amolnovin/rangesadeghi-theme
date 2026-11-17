@@ -72,11 +72,11 @@
             <li class="{{ $stStep >= 2 ? 'is-done' : ($stStep === 1 ? 'is-active' : '') }}"><i><svg><use href="#i-card"/></svg></i><span><b>تأیید پرداخت</b><small>{{ $orderDetail['payment_method'] }}</small></span></li>
             <li class="{{ $stStep >= 3 ? 'is-done' : ($stStep === 2 ? 'is-active' : '') }}"><i><svg><use href="#i-box"/></svg></i><span><b>آماده‌سازی و بسته‌بندی</b><small>انبار مرکزی آمل</small></span></li>
             <li class="{{ $stStep >= 4 ? 'is-done' : ($stStep === 3 ? 'is-active' : '') }}"><i><svg><use href="#i-truck"/></svg></i><span><b>در حال ارسال</b><small>{{ $orderDetail['carrier_name'] }}</small></span></li>
-            <li class="{{ $stStep >= 5 ? 'is-done' : '' }}"><i><svg><use href="#i-home"/></svg></i><span><b>تحویل به شما</b><small>{{ $orderDetail['delivery_day'] ?: 'طبق بازه انتخابی' }}</small></span></li>
+            <li class="{{ $stStep >= 5 ? 'is-done' : '' }}"><i><svg><use href="#i-home"/></svg></i><span><b>تحویل به شما</b><small>{{ $orderDetail['delivery_day'] ?: 'زمان تحویل مشخص نشده' }}</small></span></li>
           </ol>
 
           <div class="od-track-foot">
-            <span><svg><use href="#i-clock"/></svg>بازه تحویل: {{ $orderDetail['delivery_day'] }} ساعت {{ $orderDetail['delivery_slot'] }}</span>
+            <span><svg><use href="#i-clock"/></svg>بازه تحویل: {{ $orderDetail['delivery_day'] && $orderDetail['delivery_slot'] ? $orderDetail['delivery_day'] . ' — ' . $orderDetail['delivery_slot'] : 'تعیین نشده' }}</span>
             <span><svg><use href="#i-pin"/></svg>{{ $orderDetail['address_full'] }}</span>
           </div>
         </section>
@@ -96,7 +96,7 @@
                 <div><dt>گیرنده</dt><dd>{{ $orderDetail['receiver_name'] }}</dd></div>
                 <div><dt>شماره تماس</dt><dd><bdo dir="ltr">{{ $orderDetail['receiver_phone_fa'] }}</bdo></dd></div>
                 <div><dt>شیوه ارسال</dt><dd>{{ $orderDetail['carrier_name'] }}</dd></div>
-                <div><dt>بازه زمانی تحویل</dt><dd>{{ $orderDetail['delivery_day'] }} — ساعت {{ $orderDetail['delivery_slot'] }}</dd></div>
+                <div><dt>بازه زمانی تحویل</dt><dd>{{ $orderDetail['delivery_day'] && $orderDetail['delivery_slot'] ? $orderDetail['delivery_day'] . ' — ' . $orderDetail['delivery_slot'] : 'تعیین نشده' }}</dd></div>
                 <div class="wide"><dt>نشانی تحویل</dt><dd>{{ $orderDetail['address_full'] }}</dd></div>
                 <div><dt>کد پستی</dt><dd><bdo dir="ltr">{{ $orderDetail['postcode_fa'] ?: '—' }}</bdo></dd></div>
                 <div><dt>هزینه ارسال</dt><dd>{{ $orderDetail['shipping_fa'] }}</dd></div>

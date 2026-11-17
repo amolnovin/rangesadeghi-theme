@@ -49,13 +49,12 @@ if (!$saved && is_user_logged_in() && $checkout->get_value('billing_address_1'))
             </div>
         </div>
     <?php endif; ?>
-    <details class="co-address-form rs-billing-details" data-rs-billing-details open>
-        <summary><svg><use href="#i-pin"/></svg><?php echo wc_ship_to_billing_address_only() && WC()->cart->needs_shipping() ? esc_html__('Billing &amp; Shipping', 'woocommerce') : esc_html__('Billing details', 'woocommerce'); ?></summary>
-        <p class="rs-address-hint">مشخصات صورت‌حساب و فیلدهای ضروری سفارش را بررسی کنید.</p>
+    <div class="rs-order-contact" data-rs-customer-fields>
+        <h3>اطلاعات لازم سفارش</h3>
         <?php do_action('woocommerce_before_checkout_billing_form', $checkout); ?>
         <div class="woocommerce-billing-fields__field-wrapper rs-fields-grid"><?php foreach ($checkout->get_checkout_fields('billing') as $key => $field) woocommerce_form_field($key, $field, $checkout->get_value($key)); ?></div>
         <?php do_action('woocommerce_after_checkout_billing_form', $checkout); ?>
-    </details>
+    </div>
 </div>
 <?php if (!is_user_logged_in() && $checkout->is_registration_enabled()) : ?>
     <div class="woocommerce-account-fields co-address-form">

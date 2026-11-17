@@ -209,3 +209,11 @@ body.admin-bar .main-header.is-sticky {
 .rs-native-checkout .rs-recipient-card .co-receiver { margin-top: 16px; }
 .rs-native-checkout .co-inline-error { color: var(--accent); }
 .rs-native-checkout .co-form-actions .btn:disabled { opacity: .6; cursor: wait; }
+
+.rs-native-checkout .co-day input,.rs-native-checkout .co-slot input { position:absolute; opacity:0; width:1px; height:1px; }
+.rs-native-checkout .co-day:has(input:checked),.rs-native-checkout .co-slot:has(input:checked) { border-color:var(--accent); background:#fff5f5; color:var(--accent); }
+.rs-native-checkout .co-day:has(input:checked) { background:var(--accent); }
+.rs-native-checkout .co-day:has(input:focus-visible),.rs-native-checkout .co-slot:has(input:focus-visible) { outline:3px solid rgba(223,54,57,.35); }
+.rs-native-checkout [data-rs-slot-card][hidden],.rs-native-checkout [data-rs-eta-card][hidden] { display:none; }
+.rs-native-checkout .rs-order-contact { margin-top:16px; }
+.rs-native-checkout .rs-order-contact h3 { font-size:14px; }

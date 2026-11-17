@@ -152,6 +152,7 @@ final class AdminServiceProvider extends ServiceProvider
         /** @var Options $options */
         $options = $this->app->make('options');
         $options->update($decoded);
+        if (class_exists('WC_Cache_Helper')) \WC_Cache_Helper::incr_transient_version('shipping');
 
         /** @var PatchManager $patcher */
         $patcher = $this->app->make('patcher');
@@ -166,6 +167,7 @@ final class AdminServiceProvider extends ServiceProvider
         /** @var Options $options */
         $options = $this->app->make('options');
         $options->reset();
+        if (class_exists('WC_Cache_Helper')) \WC_Cache_Helper::incr_transient_version('shipping');
         $this->app->make('patcher')->flushThemeCaches();
 
         wp_send_json_success(['message' => 'تنظیمات قالب به مقادیر پیش‌فرض اولیه بازگردانی شد.']);
