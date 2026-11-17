@@ -7,6 +7,10 @@ function rs_assert($condition, string $message): void {
 }
 rs_assert(function_exists('WC'), 'WooCommerce is not active');
 wc_load_cart();
+update_option('woocommerce_ship_to_countries', '');
+$zone = WC_Shipping_Zones::get_zone(0);
+rs_assert((bool) $zone->add_shipping_method('flat_rate'), 'Could not configure a real WooCommerce shipping method');
+rs_assert(wc_get_shipping_method_count(true) > 0, 'WooCommerce shipping method not enabled');
 update_option('woocommerce_bacs_settings', ['enabled' => 'yes', 'title' => 'Bank transfer']);
 $gateways = WC()->payment_gateways()->payment_gateways();
 rs_assert(isset($gateways['bacs']), 'Bank transfer gateway is unavailable');
