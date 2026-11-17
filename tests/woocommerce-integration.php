@@ -93,10 +93,33 @@ $checkout = WC()->checkout();
 ob_start();
 wc_get_template('checkout/form-checkout.php', ['checkout' => $checkout]);
 $html = (string) ob_get_clean();
-foreach (['rs-native-checkout', 'data-rs-checkout-panel="address"', 'data-rs-checkout-panel="review"', 'billing_first_name', 'woocommerce-checkout-review-order', 'woocommerce-process-checkout-nonce', 'place_order'] as $part) {
+foreach (['rs-native-checkout', 'data-rs-checkout-panel="address"', 'data-rs-checkout-panel="review"', 'billing_first_name', 'woocommerce-checkout-review-order', 'woocommerce-process-checkout-nonce', 'place_order', 'rs-checkout-summary-fragment', 'Variable integration product'] as $part) {
     rs_assert(str_contains($html, $part), 'Missing checkout component: ' . $part);
 }
 rs_assert(str_contains($html, 'name="payment_method"'), 'WooCommerce payment gateways not rendered: ' . implode(',', array_keys(WC()->payment_gateways()->get_available_payment_gateways())) . '; review: ' . substr(wp_strip_all_tags($html), -500));
+$fragments = apply_filters('woocommerce_update_order_review_fragments', ['.existing' => 'preserved']);
+rs_assert(isset($fragments['.existing'], $fragments['.rs-checkout-summary-fragment']), 'Checkout fragments were not preserved or updated');
+rs_assert(str_contains($fragments['.rs-checkout-summary-fragment'], 'Integration test product'), 'Updated summary does not contain cart products');
+$called = [];
+add_action('woocommerce_before_thankyou', static function () use (&$called) { $called[] = 'before'; });
+add_action('woocommerce_thankyou', static function () use (&$called) { $called[] = 'thankyou'; });
+$order->set_status('pending');
+$order->save();
+ob_start();
+wc_get_template('checkout/thankyou.php', ['order' => $order]);
+$received = (string) ob_get_clean();
+rs_assert(str_contains($received, 'rs-order-result') && str_contains($received, 'woocommerce-thankyou-order-details'), 'Order received details missing');
+rs_assert(in_array('before', $called, true) && in_array('thankyou', $called, true), 'Thankyou hooks not invoked');
+$order->set_status('failed');
+$order->save();
+ob_start();
+wc_get_template('checkout/thankyou.php', ['order' => $order]);
+$failed = (string) ob_get_clean();
+rs_assert(str_contains($failed, 'woocommerce-thankyou-order-failed') && !str_contains($failed, 'is-complete'), 'Failed order shown as complete');
+ob_start();
+wc_get_template('checkout/thankyou.php', ['order' => false]);
+$noOrder = (string) ob_get_clean();
+rs_assert(!str_contains($noOrder, 'is-complete'), 'Missing order shown as complete');
 WC()->cart->empty_cart();
 $order->delete(true);
 $variation->delete(true);

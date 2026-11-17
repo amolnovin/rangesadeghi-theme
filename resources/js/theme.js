@@ -652,6 +652,10 @@
     const keys = ['address', 'shipping', 'payment'];
     let current = 0;
     form.classList.add('rs-steps-enabled');
+    const syncShippingMessage = () => {
+      const message = $('[data-rs-shipping-message]', form);
+      if (message) message.hidden = current !== 1 || !!$('.woocommerce-checkout-review-order-table .shipping', form);
+    };
     const show = (index, refresh = false) => {
       current = Math.max(0, Math.min(index, keys.length - 1));
       form.dataset.rsStep = keys[current];
@@ -660,13 +664,21 @@
       back.textContent = current === 0 ? 'بازگشت به سبد خرید' : 'مرحله قبل';
       back.hidden = false;
       next.hidden = current === 2;
-      next.textContent = current === 1 ? 'انتخاب روش پرداخت' : 'ادامه به روش ارسال';
-      $$('.rs-checkout-steps [data-rs-indicator]').forEach((el, i) => {
+      next.textContent = current === 1 ? 'ادامه به پرداخت' : 'ادامه به روش ارسال';
+      const heading = $('[data-rs-review-heading]', form);
+      const description = $('[data-rs-review-description]', form);
+      if (heading) heading.textContent = current === 1 ? 'شیوه ارسال سفارش' : 'پرداخت و ثبت سفارش';
+      if (description) description.textContent = current === 1 ? 'روش ارسال را با توجه به نشانی خود انتخاب کنید.' : 'سفارش و روش پرداخت را بررسی کنید.';
+      const progress = $('.rs-checkout-steps');
+      if (progress) progress.style.setProperty('--p', String((current + 1) / 4));
+      $$('.rs-checkout-steps [data-rs-indicator]').forEach((el) => {
+        const i = keys.indexOf(el.dataset.rsIndicator);
         el.classList.toggle('is-active', i === current);
-        el.classList.toggle('is-done', i < current);
+        el.classList.toggle('is-done', el.dataset.rsIndicator === 'cart' || (i >= 0 && i < current));
         if (i === current) el.setAttribute('aria-current', 'step');
         else el.removeAttribute('aria-current');
       });
+      syncShippingMessage();
       if (refresh && window.jQuery) window.jQuery(document.body).trigger('update_checkout');
     };
     next.addEventListener('click', () => {
@@ -687,6 +699,7 @@
       else show(current - 1);
     });
     if (window.jQuery) {
+      window.jQuery(document.body).on('updated_checkout', syncShippingMessage);
       window.jQuery(document.body).on('checkout_error', () => {
         // Server validation can report errors on fields in a hidden step.
         const invalid = $('.woocommerce-invalid', address);

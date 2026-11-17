@@ -88,7 +88,7 @@ body.admin-bar .main-header.is-sticky {
 }
 
 /* WooCommerce checkout and account endpoints, using the reference card layout. */
-.rs-native-checkout { display: block; max-width: 940px; margin: 0 auto; }
+.rs-native-checkout { margin-top: 18px; }
 .rs-native-checkout .co-main { width: 100%; }
 .rs-native-checkout .form-row { margin: 0 0 14px; }
 .rs-native-checkout .form-row label { display: block; margin-bottom: 5px; font-weight: 600; }
@@ -106,6 +106,23 @@ body.admin-bar .main-header.is-sticky {
 .rs-native-checkout .rs-checkout-controls { display: none; gap: 12px; justify-content: space-between; }
 .rs-native-checkout.rs-steps-enabled .rs-checkout-controls { display: flex; }
 .rs-native-checkout.rs-steps-enabled[data-rs-step="shipping"] #payment { display: none; }
+.rs-native-checkout.rs-steps-enabled[data-rs-step="shipping"] .woocommerce-checkout-review-order-table thead,
+.rs-native-checkout.rs-steps-enabled[data-rs-step="shipping"] .woocommerce-checkout-review-order-table tbody,
+.rs-native-checkout.rs-steps-enabled[data-rs-step="shipping"] .woocommerce-checkout-review-order-table tfoot > tr:not(.shipping) { display: none; }
+.rs-native-checkout .woocommerce-shipping-methods { list-style: none; padding: 0; margin: 0; }
+.rs-native-checkout .woocommerce-shipping-methods li, .rs-native-checkout #payment li { padding: 15px; border: 1.6px solid #ebe8e5; border-radius: 14px; margin: 8px 0; }
+.rs-native-checkout .woocommerce-shipping-methods label, .rs-native-checkout #payment li > label { cursor: pointer; font-weight: 600; }
+.rs-native-checkout .woocommerce-checkout-review-order-table { overflow-wrap: anywhere; }
+.rs-checkout-summary-fragment .co-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.rs-checkout-summary-fragment .summary-row b { white-space: normal; text-align: left; }
+.rs-checkout-summary-fragment .co-item b { font-size: 12px; line-height: 1.8; }
+.rs-checkout-summary-fragment .variation { font-size: 11px; margin: 0; }
+.rs-order-result .woocommerce-order-details, .rs-order-result .woocommerce-customer-details { margin-top: 18px; }
+.rs-order-result .woocommerce-order-overview { padding: 0; list-style: none; }
+.rs-order-result .woocommerce-order-overview li { display: flex; flex-direction: column; }
+.rs-order-result .woocommerce-order-details table { width: 100%; border-collapse: collapse; }
+.rs-order-result .woocommerce-order-details th, .rs-order-result .woocommerce-order-details td { padding: 10px; text-align: start; border-bottom: 1px solid #eee; }
+@media (max-width: 768px) { .rs-native-checkout .cart-side { position: static; } }
 .rs-native-checkout [hidden], .rs-native-checkout button[hidden] { display: none !important; }
 .rs-account-endpoint { margin: 20px 0; }
 .rs-account-endpoint .woocommerce-MyAccount-navigation ul { display: flex; flex-wrap: wrap; gap: 10px; list-style: none; padding: 0; }
@@ -113,3 +130,7 @@ body.admin-bar .main-header.is-sticky {
 .rs-account-endpoint .woocommerce-MyAccount-content { margin-top: 20px; overflow-x: auto; }
 .rs-account-endpoint table { width: 100%; border-collapse: collapse; }
 .rs-account-endpoint th, .rs-account-endpoint td { padding: 10px; border-bottom: 1px solid #eee; text-align: start; }
+
+.rs-order-result .co-success-grid li { background: #faf9f8; border: 1px solid #f0ede9; border-radius: 12px; padding: 12px 14px; text-align: start; gap: 4px; }
+.rs-order-result .co-success-grid li span { font-size: 11px; color: #999; }
+.rs-order-result .co-success-grid li strong { font-size: 13px; }
