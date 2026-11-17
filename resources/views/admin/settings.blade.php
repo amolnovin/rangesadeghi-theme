@@ -237,10 +237,21 @@
           <div class="rs-grid-2">
             <div class="rs-field"><label>سقف ارسال رایگان (تومان)</label><input type="number" data-opt="shop.free_shipping_threshold" value="{{ $opts['shop']['free_shipping_threshold'] ?? 10000000 }}" dir="ltr"></div>
             <div class="rs-field"><label>هزینه بسته‌بندی هدیه (تومان)</label><input type="number" data-opt="shop.gift_wrap_cost" value="{{ $opts['shop']['gift_wrap_cost'] ?? 35000 }}" dir="ltr"></div>
+            <div class="rs-field"><label>عنوان پیک فروشگاه</label><input type="text" data-opt="shop.courier_title" value="{{ $opts['shop']['courier_title'] ?? '' }}"></div>
+            <div class="rs-field"><label>هزینه پیک (واحد پول ووکامرس)</label><input type="number" min="0" step="any" data-opt="shop.courier_cost" value="{{ $opts['shop']['courier_cost'] ?? 0 }}" dir="ltr"></div>
+            <div class="rs-field rs-full"><label>شهرهای قابل ارسال با پیک (با ویرگول جدا کنید؛ خالی یعنی غیرفعال)</label><input type="text" data-opt="shop.courier_cities" value="{{ $opts['shop']['courier_cities'] ?? '' }}"></div>
+            <div class="rs-field"><label>عنوان تحویل حضوری</label><input type="text" data-opt="shop.pickup_title" value="{{ $opts['shop']['pickup_title'] ?? '' }}"></div>
+            <div class="rs-field"><label>هزینه تحویل حضوری (واحد پول ووکامرس)</label><input type="number" min="0" step="any" data-opt="shop.pickup_cost" value="{{ $opts['shop']['pickup_cost'] ?? 0 }}" dir="ltr"></div>
+            <div class="rs-field rs-full"><label>نشانی محل تحویل حضوری</label><input type="text" data-opt="shop.pickup_address" value="{{ $opts['shop']['pickup_address'] ?? '' }}"></div>
+            <div class="rs-field"><label>تعداد روزهای قابل انتخاب از امروز (۱ تا ۳۰)</label><input type="number" min="1" max="30" data-opt="shop.delivery_days_ahead" value="{{ $opts['shop']['delivery_days_ahead'] ?? 6 }}" dir="ltr"></div>
+            <div class="rs-field"><label>زمان تقریبی پیش‌فرض سایر روش‌ها (اختیاری)</label><input type="text" data-opt="shop.shipping_eta_default" value="{{ $opts['shop']['shipping_eta_default'] ?? '' }}" placeholder="مثلاً ۲ تا ۴ روز کاری"></div>
+            <div class="rs-field rs-full"><label>زمان تقریبی برای روش‌های ووکامرس؛ هر خط شناسه روش یا نرخ = توضیح</label><textarea rows="3" data-opt="shop.shipping_eta_map" placeholder="flat_rate:1=۲ تا ۴ روز کاری">{{ $opts['shop']['shipping_eta_map'] ?? '' }}</textarea><small>شناسه نرخ را از تنظیمات روش ارسال ووکامرس وارد کنید. بدون تنظیم، زمان نامشخص نمایش داده می‌شود.</small></div>
             <div class="rs-field rs-full"><label>بازه‌های زمانی تحویل سفارش (با ویرگول جدا کنید)</label><input type="text" data-opt="shop.delivery_slots" value="{{ $opts['shop']['delivery_slots'] ?? '' }}"></div>
           </div>
           <div class="rs-toggles">
-            <label class="rs-switch"><input type="checkbox" data-opt="shop.delivery_slots_enabled" {{ !empty($opts['shop']['delivery_slots_enabled']) ? 'checked' : '' }}><span>انتخاب روز و بازه زمانی تحویل در تسویه حساب</span></label>
+            <label class="rs-switch"><input type="checkbox" data-opt="shop.courier_enabled" {{ !empty($opts['shop']['courier_enabled']) ? 'checked' : '' }}><span>فعال‌سازی پیک فروشگاه برای شهرهای مشخص‌شده</span></label>
+            <label class="rs-switch"><input type="checkbox" data-opt="shop.pickup_enabled" {{ !empty($opts['shop']['pickup_enabled']) ? 'checked' : '' }}><span>فعال‌سازی تحویل حضوری از فروشگاه</span></label>
+            <label class="rs-switch"><input type="checkbox" data-opt="shop.delivery_slots_enabled" {{ !empty($opts['shop']['delivery_slots_enabled']) ? 'checked' : '' }}><span>فعال‌سازی انتخاب روز و بازه زمانی برای پیک و تحویل حضوری (هر دو گزینه به این تنظیم نیاز دارند)</span></label>
             <label class="rs-switch"><input type="checkbox" data-opt="shop.gift_wrap_enabled" {{ !empty($opts['shop']['gift_wrap_enabled']) ? 'checked' : '' }}><span>گزینه بسته‌بندی هدیه در تسویه حساب</span></label>
             <label class="rs-switch"><input type="checkbox" data-opt="shop.official_invoice_enabled" {{ !empty($opts['shop']['official_invoice_enabled']) ? 'checked' : '' }}><span>گزینه درخواست فاکتور رسمی</span></label>
           </div>
