@@ -93,7 +93,7 @@ $wp_query = new WP_Query(['page_id' => $checkoutPage]);
 rs_assert(is_checkout(), 'Checkout query was not initialized');
 $checkoutView = rs_view('woocommerce.checkout-native', ['dataPage' => 'checkout']);
 rs_assert(str_contains($checkoutView, 'rs-native-checkout'), 'Native checkout with variation did not render');
-$savedAddress = ['id' => 'integration-address', 'title' => 'Work', 'name' => 'Real Customer', 'city' => 'Amol', 'province' => 'Mazandaran', 'postal' => '12345', 'address' => 'Test Street'];
+$savedAddress = ['id' => 'integration-address', 'title' => 'Work', 'name' => 'Real Customer', 'phone' => '1234567890', 'city' => 'Amol', 'province' => 'Mazandaran', 'postal' => '12345', 'address' => 'Test Street'];
 update_user_meta($user->ID, '_rs_saved_addresses', [$savedAddress]);
 $checkout = WC()->checkout();
 ob_start();
