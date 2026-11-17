@@ -30,7 +30,8 @@ final class WooCommerceServiceProvider extends ServiceProvider
 
         // ذخیره متای اختصاصی تسویه حساب روی سفارش ووکامرس (سازگار با HPOS)
         add_action('woocommerce_checkout_create_order', [$this, 'saveCustomOrderMeta'], 10, 2);
-        add_action('woocommerce_checkout_process', [$this, 'validateDeliveryPreference']);
+        // Validate after WooCommerce updates the destination, rates and chosen methods.
+        add_action('woocommerce_after_checkout_validation', [$this, 'validateDeliveryPreference']);
         add_action('woocommerce_checkout_process', [$this, 'validateCheckoutRecipient']);
         add_filter('woocommerce_checkout_fields', [$this, 'checkoutOptionalPostcode'], 999);
         add_filter('woocommerce_shipping_methods', [$this, 'registerThemeShippingMethods']);
