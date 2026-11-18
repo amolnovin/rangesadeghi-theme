@@ -200,6 +200,7 @@
                     <span class="stars">{{ str_repeat('★', $rev['rating']) . str_repeat('☆', 5 - $rev['rating']) }}</span>
                   </div>
                   <p>{{ $rev['text'] }}</p>
+                  @if(!empty($rev['images']))<div style="display:flex;gap:8px;flex-wrap:wrap">@foreach($rev['images'] as $image)<a href="{{ $image }}" target="_blank" rel="noopener noreferrer"><img src="{{ $image }}" alt="تصویر دیدگاه محصول" style="width:96px;height:96px;object-fit:cover;border-radius:8px" loading="lazy"></a>@endforeach</div>@endif
                 </div>
               </div>
             @empty

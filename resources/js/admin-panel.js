@@ -221,6 +221,15 @@
     }
   });
 
+  document.getElementById('rs-feedback-test-send')?.addEventListener('click', async function () {
+    const id = document.getElementById('rs-feedback-test-order')?.value;
+    if (!id || !window.confirm('پیامک واقعی به شماره مشتری سفارش ' + id + ' ارسال شود؟')) return;
+    this.disabled = true;
+    try { const res = await postAjax('rs_delivery_test', { order_id: id }); notify(res.data?.message || 'نتیجه نامشخص', !!res.success); }
+    catch (_) { notify('خطا در ارتباط با سرور.', false); }
+    finally { this.disabled = false; }
+  });
+
   /* بازگردانی یک‌کلیکی (Rollback) */
   document.querySelectorAll('.rs-rollback-btn').forEach(btn => {
     btn.addEventListener('click', async () => {

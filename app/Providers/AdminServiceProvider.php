@@ -346,6 +346,15 @@ final class AdminServiceProvider extends ServiceProvider
                     <?php echo esc_html($day . ' — ساعت ' . $slot); ?>
                 </p>
             <?php endif; ?>
+            <?php if (current_user_can('manage_woocommerce')) : ?>
+                <?php $sendUrl = wp_nonce_url(add_query_arg(['action' => 'rs_delivery_send', 'order_id' => $order->get_id()], admin_url('admin-post.php')), 'rs_delivery_send_' . $order->get_id()); ?>
+                <p><a class="button" href="<?php echo esc_url($sendUrl); ?>" onclick="return confirm('پیامک واقعی به شماره مشتری ارسال شود؟')">ارسال پیام بازخورد تحویل</a></p>
+                <?php $feedback = $order->get_meta('_rs_feedback_response'); $notReceived = $order->get_meta('_rs_feedback_no_response'); ?>
+                <?php if (is_array($feedback)) : ?>
+                  <p><strong>بازخورد تحویل:</strong> <?php echo esc_html((string) ($feedback['delivered_at'] ?? '')); ?><br>بسته‌بندی: <?php echo esc_html((string) ($feedback['pack_rating'] ?? '')); ?>/۵، محصول: <?php echo esc_html((string) ($feedback['product_rating'] ?? '')); ?>/۵، توصیه: <?php echo ($feedback['recommend'] ?? '') === 'yes' ? 'بله' : 'خیر'; ?></p>
+                  <?php foreach ((array) ($feedback['images'] ?? []) as $photoId) : ?><p><a href="<?php echo esc_url(get_edit_post_link((int) $photoId)); ?>">مشاهده تصویر بازخورد در کتابخانه رسانه</a></p><?php endforeach; ?>
+                <?php elseif (is_array($notReceived)) : ?><p><strong>مشتری دریافت نکرده:</strong> <?php echo esc_html((string) ($notReceived['reason'] ?? '')); ?> — <?php echo esc_html((string) ($notReceived['detail'] ?? '')); ?></p><?php endif; ?>
+            <?php endif; ?>
             <p style="margin:6px 0">
                 بسته‌بندی هدیه: <strong><?php echo $gift === 'yes' ? 'بله' : 'خیر'; ?></strong> |
                 فاکتور رسمی: <strong><?php echo $invoice === 'yes' ? 'بله' : 'خیر'; ?></strong>
