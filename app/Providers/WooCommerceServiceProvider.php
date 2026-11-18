@@ -481,7 +481,7 @@ final class WooCommerceServiceProvider extends ServiceProvider
     {
         if (!WC()->cart) return;
         foreach (WC()->cart->get_cart() as $item) {
-            if ($this->productConsentText((int) ($item['product_id'] ?? 0)) !== '' && empty($item['rs_product_consent'])) {
+            if (($required = $this->productConsentText((int) ($item['product_id'] ?? 0))) !== '' && ($item['rs_product_consent'] ?? '') !== $required) {
                 wc_add_notice('تأیید شرایط یکی از محصولات سبد خرید ثبت نشده است؛ آن را حذف و از صفحه محصول دوباره اضافه کنید.', 'error');
                 return;
             }

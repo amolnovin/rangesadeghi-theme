@@ -28,7 +28,13 @@ def call(path, form=None, photo=None):
             headers['Content-Type'] = 'application/x-www-form-urlencoded'
             payload = urllib.parse.urlencode(form)
         conn.request('POST', path, payload, headers)
-    res = conn.getresponse(); text = res.read().decode('utf-8'); status = res.status; conn.close(); return status, text
+    res = conn.getresponse(); text = res.read().decode('utf-8'); status = res.status; location = res.getheader('Location'); conn.close()
+    if form is None and status in (301, 302, 303, 307, 308) and location:
+        target = urllib.parse.urlsplit(urllib.parse.urljoin('http://example.test' + path, location))
+        if target.hostname == 'example.test' and target.path != urllib.parse.urlsplit(path).path:
+            return call(target.path + ('?' + target.query if target.query else ''))
+        raise AssertionError(f'Unexpected redirect: {path} => {location}')
+    return status, text
 try:
     for _ in range(100):
         if server.poll() is not None: raise RuntimeError('PHP server exited')
