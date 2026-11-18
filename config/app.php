@@ -8,6 +8,7 @@ return [
         App\Providers\ThemeServiceProvider::class,
         App\Providers\AssetsServiceProvider::class,
         App\Providers\WooCommerceServiceProvider::class,
+        App\Providers\DeliveryFeedbackServiceProvider::class,
         App\Providers\SeoSchemaServiceProvider::class,
         App\Providers\PerformanceServiceProvider::class,
         App\Providers\UpdaterServiceProvider::class,

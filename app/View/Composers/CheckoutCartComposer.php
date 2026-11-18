@@ -267,7 +267,8 @@ final class CheckoutCartComposer extends ViewComposer
             'pending' => ['label' => 'در انتظار پرداخت', 'badge' => 'warn', 'tab' => 'current', 'step' => 1],
             'on-hold' => ['label' => 'در انتظار تأیید پرداخت', 'badge' => 'warn', 'tab' => 'current', 'step' => 2],
             'processing' => ['label' => 'در حال آماده‌سازی و ارسال', 'badge' => 'info', 'tab' => 'current', 'step' => 3],
-            'completed' => ['label' => 'تحویل شده', 'badge' => 'ok', 'tab' => 'delivered', 'step' => 5],
+            'completed' => ['label' => wc_get_order_status_name('completed'), 'badge' => 'ok', 'tab' => 'current', 'step' => 2],
+            'rs-delivered' => ['label' => 'تحویل شده', 'badge' => 'ok', 'tab' => 'delivered', 'step' => 5],
             'cancelled' => ['label' => 'لغو شده', 'badge' => 'muted', 'tab' => 'canceled', 'step' => 0],
             'refunded' => ['label' => 'مسترد شده', 'badge' => 'muted', 'tab' => 'returned', 'step' => 0],
             'failed' => ['label' => 'پرداخت ناموفق', 'badge' => 'muted', 'tab' => 'canceled', 'step' => 0],
@@ -354,7 +355,7 @@ final class CheckoutCartComposer extends ViewComposer
     {
         $status = $order->get_status();
         if (in_array($status, ['cancelled', 'failed', 'refunded'], true)) return 0;
-        if ($status === 'completed') return 5;
+        if ($status === 'rs-delivered') return 5;
         $step = $order->is_paid() ? 2 : 1;
         foreach (['registered', 'payment', 'preparing', 'shipping'] as $index => $stage) {
             $configured = (string) rs_option('shop.tracking_' . $stage, '');

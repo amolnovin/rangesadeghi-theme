@@ -245,7 +245,7 @@
                 </select>
               </div>
             @endforeach
-            <div class="rs-field rs-full"><small>هر وضعیت نشان‌دهنده رسیدن سفارش به همان مرحله و مراحل قبل از آن است. تحویل برای وضعیت تکمیل‌شده نمایش داده می‌شود؛ وضعیت‌های لغوشده، مسترد و ناموفق پیشرفت ندارند.</small></div>
+            <div class="rs-field rs-full"><small>هر وضعیت نشان‌دهنده رسیدن سفارش به همان مرحله و مراحل قبل از آن است. تحویل فقط پس از تأیید مشتری یا انتخاب وضعیت «تحویل شده» نمایش داده می‌شود؛ وضعیت‌های لغوشده، مسترد و ناموفق پیشرفت ندارند.</small></div>
             <div class="rs-field"><label>سقف ارسال رایگان (تومان)</label><input type="number" data-opt="shop.free_shipping_threshold" value="{{ $opts['shop']['free_shipping_threshold'] ?? 10000000 }}" dir="ltr"></div>
             <div class="rs-field"><label>هزینه بسته‌بندی هدیه (تومان)</label><input type="number" data-opt="shop.gift_wrap_cost" value="{{ $opts['shop']['gift_wrap_cost'] ?? 35000 }}" dir="ltr"></div>
             <div class="rs-field"><label>عنوان پیک فروشگاه</label><input type="text" data-opt="shop.courier_title" value="{{ $opts['shop']['courier_title'] ?? '' }}"></div>
@@ -266,6 +266,18 @@
             <label class="rs-switch"><input type="checkbox" data-opt="shop.gift_wrap_enabled" {{ !empty($opts['shop']['gift_wrap_enabled']) ? 'checked' : '' }}><span>گزینه بسته‌بندی هدیه در تسویه حساب</span></label>
             <label class="rs-switch"><input type="checkbox" data-opt="shop.official_invoice_enabled" {{ !empty($opts['shop']['official_invoice_enabled']) ? 'checked' : '' }}><span>گزینه درخواست فاکتور رسمی</span></label>
           </div>
+        </div>
+        <div class="rs-card">
+          <h2>بازخورد تحویل و یادآوری پیامکی</h2>
+          <p class="rs-muted">ابتدا وضعیت «ارسال» را در همین تب انتخاب و تنظیمات را ذخیره کنید. سپس اتصال «بازخورد تحویل رنگ صادقی» را در IPPanel Core فعال کنید. فعال‌سازی خودکار به صورت پیش‌فرض خاموش است.</p>
+          <div class="rs-toggles"><label class="rs-switch"><input type="checkbox" data-opt="delivery_feedback.enabled" {{ !empty($opts['delivery_feedback']['enabled']) ? 'checked' : '' }}><span>ارسال خودکار ۷۲ ساعت بعد از ورود سفارش به وضعیت ارسال و یادآوری هر ۴ روز پس از پاسخ خیر</span></label></div>
+          <div class="rs-grid-2">
+            <div class="rs-field"><label>روش ارسال پیامک</label><select data-opt="delivery_feedback.mode"><option value="text" {{ ($opts['delivery_feedback']['mode'] ?? '') === 'text' ? 'selected' : '' }}>متن دستی</option><option value="pattern" {{ ($opts['delivery_feedback']['mode'] ?? '') === 'pattern' ? 'selected' : '' }}>پترن</option></select></div>
+            <div class="rs-field"><label>کد پترن</label><input type="text" data-opt="delivery_feedback.pattern" value="{{ $opts['delivery_feedback']['pattern'] ?? '' }}" dir="ltr"><small>متغیرهای پترن: order_id و link</small></div>
+            <div class="rs-field rs-full"><label>متن پیامک دستی</label><textarea rows="3" data-opt="delivery_feedback.text">{{ $opts['delivery_feedback']['text'] ?? '' }}</textarea><small>از {order_id} برای شماره و {link} برای پیوند استفاده کنید. درج {link} الزامی است.</small></div>
+            <div class="rs-field"><label for="rs-feedback-test-order">شماره سفارش برای ارسال آزمایشی به مشتری</label><input id="rs-feedback-test-order" type="number" min="1" dir="ltr"><small>تنظیمات را پیش از ارسال ذخیره کنید؛ پیامک به شماره صورتحساب این سفارش ارسال می‌شود.</small></div>
+            <div class="rs-field"><label>آزمایش اتصال</label><button type="button" class="rs-btn rs-btn-outline" id="rs-feedback-test-send">ارسال پیام بازخورد</button></div>
+          </div><p class="rs-muted">ارسال‌های زمان‌بندی‌شده به WP-Cron وابسته‌اند؛ برای زمان‌بندی قابل اطمینان cron سرور را فعال کنید. از سفارش‌هایی که قبل از فعال‌سازی در وضعیت ارسال بوده‌اند می‌توان به‌صورت دستی پیام فرستاد.</p>
         </div>
       </section>
 
