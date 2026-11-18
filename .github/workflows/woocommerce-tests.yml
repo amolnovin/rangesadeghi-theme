@@ -566,3 +566,66 @@ jobs:
           فایل `rangesadeghi-wordpress-2.2.10.zip` نسخه کامل قالب است؛ `rangesadeghi-patch-2.2.10.zip` و `rangesadeghi-patch-2.2.10.json` پچ ارتقا از نسخه ۲.۲.۹ هستند. فایل ZIP پچ، فایل نصب پوسته نیست. قبل از نصب پشتیبان تهیه کرده و تغییرات را در محیط آزمایشی بررسی کنید.
           NOTES
           gh release create v2.2.10 "$RUNNER_TEMP/release/rangesadeghi-wordpress-2.2.10.zip" "$RUNNER_TEMP/release/rangesadeghi-patch-2.2.10.zip" "$RUNNER_TEMP/release/rangesadeghi-patch-2.2.10.json" --target "$GITHUB_SHA" --title 'رنگ صادقی ۲.۲.۱۰' --notes-file "$RUNNER_TEMP/notes.md" --prerelease
+
+
+  publish-delivery-feedback-2-2-11:
+    needs: integration
+    if: github.event_name == 'push' && github.ref == 'refs/heads/arena/d1d4b87c-rangesadeghi-theme' && startsWith(github.event.head_commit.message, 'Publish delivery feedback release 2.2.11')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Build and verify release packages
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/release"
+          git archive --format=zip --prefix=rangesadeghi/ --output="$RUNNER_TEMP/release/rangesadeghi-wordpress-2.2.11.zip" "$GITHUB_SHA" -- \
+            app bootstrap config resources assets woocommerce 404.php archive.php comments.php footer.php \
+            front-page.php functions.php header.php home.php index.php page.php rtl.css screenshot.png \
+            search.php single.php style.css styles.css pages.css home.css template-about.php \
+            template-categories.php template-contact.php template-order-tracking.php template-stores.php \
+            theme.json woocommerce.php WORDPRESS.md
+          python3 tools/make-patch.py --version 2.2.11 --min-version 2.2.10 \
+            --files style.css app/Providers/AdminServiceProvider.php app/Providers/DeliveryFeedbackServiceProvider.php app/View/Composers/CheckoutCartComposer.php app/View/Composers/SingleProductComposer.php config/app.php config/defaults.php resources/css/delivery-feedback.css resources/js/admin-panel.js resources/views/admin/settings.blade.php resources/views/woocommerce/delivery-feedback.php resources/views/woocommerce/single-product.blade.php \
+            --notes 'بازخورد تحویل و یادآوری پیامکی' --out-dir "$RUNNER_TEMP/release"
+          python3 - <<'PYVERIFY'
+          import os, zipfile, json, hashlib, base64, subprocess
+          base = os.path.join(os.environ['RUNNER_TEMP'], 'release')
+          expected = {'style.css', 'app/Providers/AdminServiceProvider.php', 'app/Providers/DeliveryFeedbackServiceProvider.php', 'app/View/Composers/CheckoutCartComposer.php', 'app/View/Composers/SingleProductComposer.php', 'config/app.php', 'config/defaults.php', 'resources/css/delivery-feedback.css', 'resources/js/admin-panel.js', 'resources/views/admin/settings.blade.php', 'resources/views/woocommerce/delivery-feedback.php', 'resources/views/woocommerce/single-product.blade.php'}
+          assert subprocess.check_output(['git', 'rev-parse', 'v2.2.10^{commit}'], text=True).strip() == 'e186d6a79c7c885b38f54fd0462d988f6b4495c5'
+          changed = set(subprocess.check_output(['git', 'diff', '--name-only', 'v2.2.10', os.environ['GITHUB_SHA']], text=True).splitlines())
+          with zipfile.ZipFile(os.path.join(base, 'rangesadeghi-wordpress-2.2.11.zip')) as full, zipfile.ZipFile(os.path.join(base, 'rangesadeghi-patch-2.2.11.zip')) as patch:
+              deployed = {name[len('rangesadeghi/'):] for name in full.namelist() if name.startswith('rangesadeghi/') and not name.endswith('/')}
+              assert changed & deployed == expected, (changed & deployed, expected)
+              assert full.testzip() is None and patch.testzip() is None
+              assert b'Version: 2.2.11' in full.read('rangesadeghi/style.css')
+              manifest = json.loads(patch.read('patch.json'))
+              bundle = json.load(open(os.path.join(base, 'rangesadeghi-patch-2.2.11.json')))
+              assert manifest['min_version'] == '2.2.10' and manifest['target_version'] == '2.2.11'
+              assert set(manifest['files']) == expected
+              for name, meta in manifest['files'].items():
+                  data = patch.read('files/' + name)
+                  assert data == full.read('rangesadeghi/' + name) == subprocess.check_output(['git', 'show', os.environ['GITHUB_SHA'] + ':' + name])
+                  assert hashlib.sha256(data).hexdigest() == meta['sha256']
+                  assert data == base64.b64decode(bundle['files'][name]['content_base64'])
+          PYVERIFY
+      - name: Publish tested prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/notes.md" <<'NOTES'
+          ## قالب رنگ صادقی ۲.۲.۱۱ — بازخورد تحویل
+
+          وضعیت «تحویل شده» مستقل از «تکمیل شده» است. در تنظیمات فروشگاه وضعیت ارسال موجود را انتخاب، اتصال افزونه ippanel-core و متن یا پترن را تنظیم و ارسال خودکار را فعال کنید. برای متن، متغیرهای {order_id} و {link} و برای پترن متغیرهای order_id و link لازم‌اند. ارسال اولیه ۷۲ ساعت پس از ورود به وضعیت ارسال است؛ پس از پاسخ خیر، یادآوری هر چهار روز تقویمی تکرار می‌شود. ارسال آزمایشی و دستی پیامک واقعی به شماره سفارش می‌فرستد. سفارش‌های از قبل ارسال‌شده به‌طور خودکار زمان‌بندی نمی‌شوند. برای زمان‌بندی قابل اتکا cron سرور برای WP-Cron تنظیم شود. خطای ارسال در یادداشت سفارش ثبت و روز بعد مجدداً تلاش می‌شود.
+
+          لینک توکن‌دار به تنهایی مجوز ثبت بازخورد همان سفارش است؛ از انتشار آن خودداری شود. IPPanel Core ممکن است متن پیام و لینک را در گزارش پیامک ذخیره کند. تصاویر در کتابخانه رسانه معمول وردپرس ذخیره و از نشانی مستقیم عمومی قابل دسترسی هستند؛ نمایش تصاویر همراه نظر پس از تأیید نظر انجام می‌شود. برای سفارش چندمحصولی یک محصول جهت نظر انتخاب می‌شود. نظر اختیاری است و در صورت ثبت در انتظار تأیید مدیر خواهد بود.
+
+          آزمون‌های WordPress/WooCommerce با و بدون HPOS انجام شده‌اند؛ ارسال واقعی و تنظیمات IPPanel سایت شما آزمایش نشده است. پیش از فعال‌سازی در محیط آزمایشی بررسی و پشتیبان تهیه کنید. وضعیت کیف پول همچنان مطابق هشدار نسخه ۲.۲.۱۰ است و در این نسخه اصلاح نشده است.
+
+          فایل rangesadeghi-wordpress-2.2.11.zip نسخه کامل نصب قالب است؛ پچ ZIP و JSON مخصوص ارتقا از ۲.۲.۱۰ در نصب‌کننده پچ پنل قالب هستند و ZIP پچ فایل نصب پوسته نیست.
+          NOTES
+          gh release create v2.2.11 "$RUNNER_TEMP/release/rangesadeghi-wordpress-2.2.11.zip" "$RUNNER_TEMP/release/rangesadeghi-patch-2.2.11.zip" "$RUNNER_TEMP/release/rangesadeghi-patch-2.2.11.json" --target "$GITHUB_SHA" --title 'رنگ صادقی ۲.۲.۱۱' --notes-file "$RUNNER_TEMP/notes.md" --prerelease

@@ -415,6 +415,7 @@ rs_assert($delivery->validToken($feedbackOrder, $token) && !$delivery->validToke
 $feedbackOrder->update_meta_data('_rs_feedback_last_sent', time() - 61); $feedbackOrder->save();
 rs_assert(is_wp_error($delivery->send($feedbackOrder)) === false, 'Message was not sent after cooldown');
 rs_assert(is_wp_error($delivery->send($feedbackOrder)), 'Duplicate SMS within cooldown accepted');
+$feedbackOrder = wc_get_order($feedbackOrder->get_id());
 $feedbackOrder->update_meta_data('_rs_feedback_last_sent', time() - 61); $feedbackOrder->save();
 $options->update(['delivery_feedback' => ['mode' => 'pattern', 'pattern' => 'test-pattern']]);
 rs_assert($delivery->send($feedbackOrder) === true && $GLOBALS['rs_test_sms']['type'] === 'pattern' && str_contains($GLOBALS['rs_test_sms']['args']['link'], 'rsd='), 'Pattern SMS parameters incorrect');
