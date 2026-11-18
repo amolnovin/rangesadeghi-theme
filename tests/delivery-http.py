@@ -38,7 +38,7 @@ try:
     else: raise RuntimeError('PHP server did not start')
     for query, expected in [('/?post_type=product&s=Delivery+feedback', 'shop-grid'), ('/?s=Hello', '<main'), ('/?post_type=product&s=nothing-matches-xyz', 'shop-grid')]:
         status, html = call(query)
-        assert status == 200 and expected in html, 'Search produced an error or blank page: ' + query
+        assert status == 200 and expected in html, f'Search produced an error or blank page: {query}; HTTP {status}; response: {html[:500]!r}'
     path = '/?rsd=' + str(data['id']) + '.' + data['token']
     code, body = call('/?rsd=' + str(data['id']) + '.' + '0'*22)
     assert code == 404 and 'delivery-feedback-form' not in body, 'Invalid token exposed a form'

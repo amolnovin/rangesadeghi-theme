@@ -1300,7 +1300,9 @@
       e.preventDefault();
       const identity = $('#mobile-number')?.value.trim() || '';
       const password = $('#modal-password')?.value || '';
-      const res = await wpAjax('rs_modal_auth', { identity, password });
+      const payload = Object.fromEntries(new FormData(e.currentTarget).entries());
+      const res = await wpAjax('rs_modal_auth', { ...payload, identity, password });
+      if (password) $('.wpmc-refresh', e.currentTarget)?.click();
       if (!res.success) {
         showToast(res.data?.message || 'خطا در ورود', 'i-info');
         return;

@@ -171,6 +171,7 @@
         <label for="modal-password">رمز عبور حساب کاربری</label>
         <input id="modal-password" name="password" type="password" placeholder="رمز عبور خود را وارد کنید">
       </div>
+      @if(class_exists('WP_MC_Captcha') && class_exists('WP_MC_Core') && \WP_MC_Core::get('enabled', 1) && \WP_MC_Core::get('apply_login')){!! \WP_MC_Captcha::output() !!}@endif
       <button type="submit">ادامه و ورود</button>
     </form>
   </section>
