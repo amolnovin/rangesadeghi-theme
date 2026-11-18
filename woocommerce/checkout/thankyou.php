@@ -18,7 +18,6 @@ defined('ABSPATH') || exit;
         $deliveryDay = (string) $order->get_meta('_rs_delivery_day');
         $deliverySlot = (string) $order->get_meta('_rs_delivery_slot');
         $deliveryTime = implode(' — ', array_filter([$deliveryDay, $deliverySlot]));
-        $address = $order->get_formatted_shipping_address();
         $canView = is_user_logged_in() && ((int) $order->get_user_id() === get_current_user_id() || current_user_can('manage_woocommerce'));
         ?>
         <?php wc_get_template('checkout/rs-progress.php', ['step' => $completedStep ? 'done' : 'payment']); ?>
@@ -45,9 +44,6 @@ defined('ABSPATH') || exit;
                     <?php if ($order->get_payment_method_title()) : ?><div class="woocommerce-order-overview__payment-method method"><dt>روش پرداخت</dt><dd><?php echo wp_kses_post($order->get_payment_method_title()); ?></dd></div><?php endif; ?>
                     <?php if ($order->get_shipping_method()) : ?><div><dt>شیوه ارسال</dt><dd><?php echo esc_html($order->get_shipping_method()); ?></dd></div><?php endif; ?>
                     <?php if ($order->get_shipping_method()) : ?><div><dt>زمان تحویل</dt><dd><?php echo $deliveryTime !== '' ? esc_html(rs_fa($deliveryTime)) : 'تعیین نشده'; ?></dd></div><?php endif; ?>
-                    <?php if ($address !== '') : ?><div class="wide"><dt>آدرس تحویل</dt><dd><?php echo wp_kses_post($address); ?></dd></div><?php endif; ?>
-                    <?php if ($order->get_date_created()) : ?><div><dt>تاریخ سفارش</dt><dd><?php echo esc_html(wc_format_datetime($order->get_date_created())); ?></dd></div><?php endif; ?>
-                    <?php if (is_user_logged_in() && (int) $order->get_user_id() === get_current_user_id() && $order->get_billing_email()) : ?><div><dt>ایمیل</dt><dd><bdi><?php echo esc_html($order->get_billing_email()); ?></bdi></dd></div><?php endif; ?>
                 </dl>
                 <div class="co-success-thumbs" aria-label="کالاهای سفارش">
                     <?php foreach ($order->get_items() as $item) : $product = $item->get_product(); ?>
@@ -63,7 +59,7 @@ defined('ABSPATH') || exit;
                 </ol><?php endif; ?>
                 <div class="co-success-actions">
                     <?php if ($order->needs_payment()) : ?><a class="btn btn-primary" href="<?php echo esc_url($order->get_checkout_payment_url()); ?>"><svg aria-hidden="true"><use href="#i-card"/></svg>پرداخت سفارش</a><?php endif; ?>
-                    <?php if ($canView) : ?><a class="btn btn-primary" href="<?php echo esc_url($order->get_view_order_url()); ?>"><svg aria-hidden="true"><use href="#i-box"/></svg>مشاهده سفارش</a><?php endif; ?>
+                    <?php if ($canView) : ?><a class="btn btn-primary" href="<?php echo esc_url(rs_page_url('order-tracking', ['order_id' => $order->get_id()])); ?>"><svg aria-hidden="true"><use href="#i-box"/></svg>مشاهده سفارش</a><?php endif; ?>
                     <a class="btn btn-outline" href="<?php echo esc_url(wc_get_page_permalink('shop')); ?>"><svg aria-hidden="true"><use href="#i-bag"/></svg>ادامه خرید</a>
                 </div>
             <?php endif; ?>

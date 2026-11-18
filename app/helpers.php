@@ -157,7 +157,7 @@ if (!function_exists('rs_page_url')) {
             'about' => rs_find_template_or_slug_url('about', 'template-about.php'),
             'contact' => rs_find_template_or_slug_url('contact', 'template-contact.php'),
             'stores' => rs_find_template_or_slug_url('stores', 'template-stores.php'),
-            'order-tracking' => rs_find_template_or_slug_url('order-details', 'template-order-tracking.php'),
+            'order-details', 'order-tracking' => rs_find_template_or_slug_url('order-details', 'template-order-tracking.php'),
             default => home_url('/' . trim($slug, '/') . '/'),
         };
 

@@ -79,7 +79,7 @@
               <button type="button" data-account-tab="orders"><svg><use href="#i-box"/></svg>سفارش‌های من<b>{{ $accountUser['orders_count_fa'] }}</b></button>
               <button type="button" data-account-tab="addresses"><svg><use href="#i-pin"/></svg>آدرس‌های من</button>
               <button type="button" data-account-tab="favorites"><svg><use href="#i-heart"/></svg>علاقه‌مندی‌ها</button>
-              <button type="button" data-account-tab="wallet"><svg><use href="#i-wallet"/></svg>امتیاز و کد تخفیف</button>
+              <button type="button" data-account-tab="wallet"><svg><use href="#i-wallet"/></svg>کیف پول و امتیاز</button>
               <button type="button" data-account-tab="profile"><svg><use href="#i-user"/></svg>اطلاعات حساب</button>
               <button type="button" data-account-tab="support"><svg><use href="#i-headset"/></svg>پشتیبانی</button>
               <a class="account-logout" href="{{ $accountUser['logout_url'] }}"><svg><use href="#i-logout"/></svg>خروج از حساب</a>
@@ -230,19 +230,14 @@
               </div>
             </section>
 
-            {{-- امتیاز و کد تخفیف --}}
-            <section class="account-panel" id="panel-wallet" aria-label="امتیاز و کد تخفیف">
-              <div class="panel-head"><h2>امتیاز وفاداری و کد تخفیف</h2></div>
-              <div class="wallet-grid">
-                <article class="wallet-card">
-                  <span class="wallet-label">امتیاز وفاداری شما</span>
-                  <b>{{ $accountUser['points_fa'] }} <small>امتیاز</small></b>
-                </article>
-                <article class="wallet-card is-gift">
-                  <span class="wallet-label">مجموع خریدهای موفق</span>
-                  <b>{{ $accountUser['total_spent_fa'] }} <small>تومان</small></b>
-                </article>
-              </div>
+            {{-- کیف پول و امتیاز --}}
+            <section class="account-panel" id="panel-wallet" aria-label="کیف پول و امتیاز">
+              <div class="panel-head"><h2>کیف پول و امتیاز</h2></div>
+              @if(has_action('woocommerce_account_wallet_endpoint', ['Amol_Wallet_Frontend', 'account_endpoint_content']))
+                {!! do_action('woocommerce_account_wallet_endpoint') !!}
+              @else
+                <p>کیف پول در حال حاضر در دسترس نیست.</p>
+              @endif
             </section>
 
             {{-- اطلاعات حساب --}}

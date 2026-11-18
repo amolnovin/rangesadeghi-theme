@@ -67,12 +67,12 @@
             @endif
           </header>
 
-          <ol class="od-steps" id="od-steps">
+          <ol class="od-steps" id="od-steps" style="--rs-progress:{{ max(0, min(100, ($stStep - 1) * 25)) }}%">
             <li class="{{ $stStep >= 1 ? 'is-done' : '' }}"><i><svg><use href="#i-check"/></svg></i><span><b>ثبت سفارش</b><small>{{ $orderDetail['date_fa'] }}</small></span></li>
             <li class="{{ $stStep >= 2 ? 'is-done' : ($stStep === 1 ? 'is-active' : '') }}"><i><svg><use href="#i-card"/></svg></i><span><b>تأیید پرداخت</b><small>{{ $orderDetail['payment_method'] }}</small></span></li>
-            <li class="{{ $stStep >= 3 ? 'is-done' : ($stStep === 2 ? 'is-active' : '') }}"><i><svg><use href="#i-box"/></svg></i><span><b>آماده‌سازی و بسته‌بندی</b><small>انبار مرکزی آمل</small></span></li>
-            <li class="{{ $stStep >= 4 ? 'is-done' : ($stStep === 3 ? 'is-active' : '') }}"><i><svg><use href="#i-truck"/></svg></i><span><b>در حال ارسال</b><small>{{ $orderDetail['carrier_name'] }}</small></span></li>
-            <li class="{{ $stStep >= 5 ? 'is-done' : '' }}"><i><svg><use href="#i-home"/></svg></i><span><b>تحویل به شما</b><small>{{ $orderDetail['delivery_day'] ?: 'زمان تحویل مشخص نشده' }}</small></span></li>
+            <li class="{{ $stStep >= 3 ? 'is-done' : ($stStep === 2 ? 'is-active' : '') }}"><i><svg><use href="#i-box"/></svg></i><span><b>آماده‌سازی</b><small></small></span></li>
+            <li class="{{ $stStep >= 4 ? 'is-done' : ($stStep === 3 ? 'is-active' : '') }}"><i><svg><use href="#i-truck"/></svg></i><span><b>ارسال</b><small>{{ $orderDetail['carrier_name'] }}</small></span></li>
+            <li class="{{ $stStep >= 5 ? 'is-done' : '' }}"><i><svg><use href="#i-home"/></svg></i><span><b>تحویل</b><small>{{ $orderDetail['delivery_day'] ?: 'زمان تحویل مشخص نشده' }}</small></span></li>
           </ol>
 
           <div class="od-track-foot">
@@ -112,7 +112,7 @@
                 <div><dt>روش پرداخت</dt><dd>{{ $orderDetail['payment_method'] }}</dd></div>
                 <div><dt>مبلغ کل</dt><dd><b>{{ $orderDetail['total_fa'] }} تومان</b></dd></div>
                 <div><dt>شماره پیگیری</dt><dd><bdo dir="ltr">{{ rs_fa($orderDetail['transaction_id']) }}</bdo></dd></div>
-                <div><dt>فاکتور رسمی</dt><dd><button class="text-link" type="button" data-print><svg><use href="#i-download"/></svg>چاپ / دریافت فاکتور</button></dd></div>
+                <div><dt>فاکتور خرید</dt><dd><button class="text-link" type="button" data-print><svg><use href="#i-download"/></svg>چاپ / دریافت فاکتور</button></dd></div>
               </dl>
             </section>
 
@@ -200,6 +200,21 @@
             </section>
           </aside>
         </div>
+        <section class="rs-print-invoice" aria-label="فاکتور سفارش">
+          <header class="rs-invoice-header"><div><strong>{{ get_bloginfo('name') }}</strong><p>فاکتور خرید</p></div><div><b>شماره سفارش: {{ $orderDetail['number_fa'] }}</b><p>تاریخ: {{ $orderDetail['date_fa'] }}</p><p>وضعیت: {{ $orderDetail['status_label'] }}</p></div></header>
+          <div class="rs-invoice-customer"><b>خریدار</b><p>{{ $orderDetail['invoice_billing'] ?: 'اطلاعات صورتحساب ثبت نشده' }}</p></div>
+          <table><thead><tr><th>ردیف</th><th>شرح کالا</th><th>تعداد</th><th>قیمت واحد</th><th>جمع</th></tr></thead><tbody>
+            @foreach($orderDetail['items'] as $idx => $oi)
+              <tr><td>{{ rs_fa($idx + 1) }}</td><td>{{ $oi['title'] }}</td><td>{{ $oi['qty_fa'] }}</td><td>{!! wp_kses_post($oi['invoice_unit']) !!}</td><td>{!! wp_kses_post($oi['invoice_total']) !!}</td></tr>
+            @endforeach
+          </tbody></table>
+          <div class="rs-invoice-totals">
+            @foreach($orderDetail['invoice_totals'] as $invoiceTotal)
+              <div><span>{!! wp_kses_post($invoiceTotal['label']) !!}</span><b>{!! wp_kses_post($invoiceTotal['value']) !!}</b></div>
+            @endforeach
+          </div>
+          <footer>این سند خلاصه اطلاعات ثبت‌شده سفارش است.</footer>
+        </section>
       @endif
     </div>
   </main>
