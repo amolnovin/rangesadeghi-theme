@@ -63,8 +63,12 @@ jobs:
             python3 - <<'PYERROR'
           import os
           p = os.path.join(os.environ['RUNNER_TEMP'], 'rs-integration.log')
-          text = open(p, errors='replace').read()[-4500:]
-          print('::error::' + text.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A'))
+          import re
+          text = open(p, errors='replace').read()
+          lines = text.splitlines()
+          important = [line for line in lines if re.search(r'Fatal error|AssertionError|Traceback|TypeError|RuntimeException|Parse error|Error:', line)]
+          summary = '\n'.join(important[-12:]) + '\n' + text[-1000:]
+          print('::error::' + summary.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A'))
           PYERROR
           fi
 
