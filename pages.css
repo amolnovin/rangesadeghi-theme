@@ -1655,3 +1655,4 @@ a.co-step-btn:hover i,button.co-step-btn:not(:disabled):hover i{transform:transl
 }
 @media(prefers-reduced-motion:reduce){.sticky-buy{transition:none}}
 .rs-product-consent{display:flex;align-items:flex-start;gap:9px;background:#fff8ed;border:1px solid #eddbbd;border-radius:12px;padding:12px;margin:12px 0;font-size:13px;line-height:1.9}.rs-product-consent input{margin-top:7px}
+.rs-filter-category summary{display:flex;align-items:center;justify-content:space-between;gap:6px;cursor:pointer;list-style:none}.rs-filter-category summary::-webkit-details-marker{display:none}.rs-filter-category summary .filter-option{flex:1}.rs-filter-category summary>svg{width:15px;height:15px;transition:transform .2s}.rs-filter-category details[open]>summary>svg{transform:rotate(180deg)}.rs-filter-children{padding-inline-start:18px;border-inline-start:1px solid #eee}.rs-close-filters{align-self:flex-end;border:0;background:#f6f3ef;border-radius:10px;padding:10px 14px;cursor:pointer}

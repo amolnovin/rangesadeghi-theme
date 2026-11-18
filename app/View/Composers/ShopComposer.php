@@ -50,6 +50,14 @@ final class ShopComposer extends ViewComposer
             }
         }
         $selectedBrands = $this->csvArray($params['brand'] ?? []);
+        $selectedAttributes = [];
+        if (rs_is_wc() && function_exists('wc_get_attribute_taxonomies')) {
+            foreach ((array) wc_get_attribute_taxonomies() as $attribute) {
+                $taxonomy = wc_attribute_taxonomy_name($attribute->attribute_name);
+                if (taxonomy_exists($taxonomy)) $selectedAttributes[$taxonomy] = $this->csvArray($params['rs_attr_' . $taxonomy] ?? []);
+            }
+        }
+
         if (rs_is_wc() && is_tax('product_brand')) {
             $term = get_queried_object();
             if ($term && isset($term->slug) && !in_array($term->slug, $selectedBrands, true)) {
@@ -65,6 +73,7 @@ final class ShopComposer extends ViewComposer
         $products = [];
         $total = 0;
         $totalPages = 1;
+        $matchingIds = null;
 
         $wcPublished = (rs_is_wc() && post_type_exists('product'))
             ? (int) (wp_count_posts('product')->publish ?? 0)
@@ -105,6 +114,10 @@ final class ShopComposer extends ViewComposer
                         'compare' => 'IN',
                     ];
                 }
+            }
+
+            foreach ($selectedAttributes as $taxonomy => $values) {
+                if ($values !== []) $taxQuery[] = ['taxonomy' => $taxonomy, 'field' => 'slug', 'terms' => $values];
             }
 
             $mult = (function_exists('get_woocommerce_currency') && get_woocommerce_currency() === 'IRR') ? 10 : 1;
@@ -160,6 +173,12 @@ final class ShopComposer extends ViewComposer
                 $args['meta_query'] = $metaQuery;
             }
 
+            $facetArgs = $args;
+            $facetArgs['fields'] = 'ids';
+            $facetArgs['posts_per_page'] = -1;
+            $facetArgs['paged'] = 1;
+            $facetArgs['no_found_rows'] = true;
+            $matchingIds = (new WP_Query($facetArgs))->posts;
             $query = new WP_Query($args);
             $total = (int) $query->found_posts;
             $totalPages = max(1, (int) $query->max_num_pages);
@@ -244,8 +263,10 @@ final class ShopComposer extends ViewComposer
             'maxPrice' => $maxPrice,
             'onlySale' => $onlySale,
             'onlyStock' => $onlyStock,
-            'filterCategories' => $this->resolveFilterCategories($wcPublished > 0),
-            'filterBrands' => $this->resolveFilterBrands($wcPublished > 0),
+            'filterCategories' => $this->resolveFilterCategories($wcPublished > 0, $matchingIds, $selectedCats),
+            'filterBrands' => $this->resolveFilterBrands($wcPublished > 0, $matchingIds, $selectedBrands),
+            'filterAttributes' => $this->resolveAttributes($matchingIds, $selectedAttributes),
+            'selectedAttributes' => $selectedAttributes,
             'archiveHeading' => $this->resolveArchiveHeading($searchQuery),
         ];
     }
@@ -253,7 +274,7 @@ final class ShopComposer extends ViewComposer
     /**
      * @return array<int, array{slug: string, name: string, count: int, img: string}>
      */
-    private function resolveFilterCategories(bool $useWc): array
+    private function resolveFilterCategories(bool $useWc, ?array $ids, array $selected): array
     {
         if ($useWc && taxonomy_exists('product_cat')) {
             $terms = get_terms([
@@ -262,6 +283,7 @@ final class ShopComposer extends ViewComposer
                 'exclude' => [(int) get_option('default_product_cat', 0)],
             ]);
             if (is_array($terms) && $terms !== []) {
+                $counts = $this->facetCounts($ids, 'product_cat', true);
                 $out = [];
                 foreach ($terms as $t) {
                     $imgMeta = (string) get_term_meta($t->term_id, '_rs_cat_image', true);
@@ -270,11 +292,13 @@ final class ShopComposer extends ViewComposer
                     $out[] = [
                         'slug' => $t->slug,
                         'name' => $t->name,
-                        'count' => (int) $t->count,
+                        'count' => $counts[(int) $t->term_id] ?? 0,
+                        'id' => (int) $t->term_id,
+                        'parent' => (int) $t->parent,
                         'img' => $thumbUrl !== '' ? $thumbUrl : rs_img($imgMeta ?: 'cat-craft.webp'),
                     ];
                 }
-                return $out;
+                return $this->categoryTree($out);
             }
         }
 
@@ -290,6 +314,7 @@ final class ShopComposer extends ViewComposer
                 'name' => $c['title'],
                 'count' => $counts[$c['slug']] ?? 0,
                 'img' => rs_img($c['image']),
+                'children' => [],
             ];
         }
         return $fallback;
@@ -298,14 +323,17 @@ final class ShopComposer extends ViewComposer
     /**
      * @return array<int, array{slug: string, title: string, count: int}>
      */
-    private function resolveFilterBrands(bool $useWc): array
+    private function resolveFilterBrands(bool $useWc, ?array $ids, array $selected): array
     {
         if ($useWc && taxonomy_exists('product_brand')) {
             $terms = get_terms(['taxonomy' => 'product_brand', 'hide_empty' => false]);
             if (is_array($terms) && $terms !== []) {
+                $counts = $this->facetCounts($ids, 'product_brand');
                 $out = [];
                 foreach ($terms as $t) {
-                    $out[] = ['slug' => $t->slug, 'title' => $t->name, 'count' => (int) $t->count];
+                    $count = $counts[(int) $t->term_id] ?? 0;
+                    if (!$count && !in_array($t->slug, $selected, true)) continue;
+                    $out[] = ['slug' => $t->slug, 'title' => $t->name, 'count' => $count];
                 }
                 return $out;
             }
@@ -325,6 +353,51 @@ final class ShopComposer extends ViewComposer
             ];
         }
         return $fallback;
+    }
+
+    private function facetCounts(?array $ids, string $taxonomy, bool $ancestors = false): array
+    {
+        if (!$ids) return [];
+        $relations = wp_get_object_terms($ids, $taxonomy, ['fields' => 'all_with_object_id']);
+        if (is_wp_error($relations)) return [];
+        $sets = [];
+        foreach ($relations as $term) {
+            $termIds = [(int) $term->term_id];
+            if ($ancestors) $termIds = array_merge($termIds, get_ancestors($term->term_id, $taxonomy, 'taxonomy'));
+            foreach ($termIds as $id) $sets[(int) $id][(int) $term->object_id] = true;
+        }
+        return array_map('count', $sets);
+    }
+
+    private function categoryTree(array $items, int $parent = 0): array
+    {
+        $out = [];
+        foreach ($items as $item) {
+            if (($item['parent'] ?? 0) !== $parent) continue;
+            $item['children'] = $this->categoryTree($items, $item['id']);
+            $out[] = $item;
+        }
+        return $out;
+    }
+
+    private function resolveAttributes(?array $ids, array $selected): array
+    {
+        if ($ids === null || !function_exists('wc_get_attribute_taxonomies')) return [];
+        $out = [];
+        foreach ((array) wc_get_attribute_taxonomies() as $attribute) {
+            $tax = wc_attribute_taxonomy_name($attribute->attribute_name);
+            if (!taxonomy_exists($tax)) continue;
+            $counts = $this->facetCounts($ids, $tax);
+            $terms = get_terms(['taxonomy' => $tax, 'hide_empty' => false]);
+            if (is_wp_error($terms)) continue;
+            $choices = [];
+            foreach ($terms as $term) {
+                $count = $counts[(int) $term->term_id] ?? 0;
+                if ($count || in_array($term->slug, $selected[$tax] ?? [], true)) $choices[] = ['slug' => $term->slug, 'name' => $term->name, 'count' => $count];
+            }
+            if ($choices) $out[] = ['taxonomy' => $tax, 'name' => $attribute->attribute_label, 'choices' => $choices];
+        }
+        return $out;
     }
 
     private function resolveArchiveHeading(string $searchQuery): string

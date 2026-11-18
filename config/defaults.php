@@ -200,6 +200,7 @@ return [
         'tracking_preparing' => '',
         'tracking_shipping' => '',
         'per_page' => 9,
+        'pagination_mode' => 'numbers',
         'default_view' => 'grid', // grid | list
         'default_sort' => 'default',
         'ajax_filtering' => true,

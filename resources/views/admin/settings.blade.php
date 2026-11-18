@@ -202,6 +202,7 @@
         <div class="rs-card">
           <h2>چیدمان آرشیو فروشگاه و فیلترهای کناری</h2>
           <div class="rs-grid-2">
+            <div class="rs-field"><label>روش صفحه‌بندی فروشگاه</label><select data-opt="shop.pagination_mode"><option value="numbers" {{ ($opts['shop']['pagination_mode'] ?? 'numbers') === 'numbers' ? 'selected' : '' }}>شماره صفحه</option><option value="more" {{ ($opts['shop']['pagination_mode'] ?? '') === 'more' ? 'selected' : '' }}>نمایش بیشتر</option><option value="infinite" {{ ($opts['shop']['pagination_mode'] ?? '') === 'infinite' ? 'selected' : '' }}>اسکرول بی‌نهایت</option></select></div>
             <div class="rs-field"><label>تعداد محصول در هر صفحه</label><input type="number" data-opt="shop.per_page" value="{{ $opts['shop']['per_page'] ?? 9 }}" dir="ltr"></div>
             <div class="rs-field">
               <label>حالت نمایش پیش‌فرض</label>
