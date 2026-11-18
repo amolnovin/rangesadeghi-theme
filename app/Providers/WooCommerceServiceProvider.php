@@ -20,6 +20,8 @@ final class WooCommerceServiceProvider extends ServiceProvider
 
         // تعداد محصولات در صفحه آرشیو فروشگاه
         add_filter('loop_shop_per_page', static fn(): int => max(3, (int) rs_option('shop.per_page', 9)), 20);
+        // Keep product searches in the filterable results page, even for one result.
+        add_filter('woocommerce_redirect_single_search_result', '__return_false');
         add_filter('woocommerce_Query_vars', static fn($v) => $v);
 
         // اعمال فیلترهای URL روی کوئری اصلی فروشگاه ووکامرس
