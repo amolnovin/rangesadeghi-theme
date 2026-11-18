@@ -127,7 +127,7 @@ final class DeliveryFeedbackServiceProvider extends ServiceProvider
             $result = ippanel_send_external_sms($token, $phone, $pattern, ['order_id' => $number, 'link' => $url], 'pattern');
         } else {
             $text = (string) rs_option('delivery_feedback.text', '');
-            if (trim($text) === '' || !str_contains($text, '{link}')) return new WP_Error('text_missing', 'متن پیامک باید شامل {link} باشد.');
+            if (trim($text) === '' || !str_contains($text, '{link}') || !str_contains($text, '{order_id}')) return new WP_Error('text_missing', 'متن پیامک باید شامل {order_id} و {link} باشد.');
             $result = ippanel_send_external_sms($token, $phone, strtr($text, ['{order_id}' => $number, '{link}' => $url]), [], 'text');
         }
         if (is_wp_error($result)) return $result;
