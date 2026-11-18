@@ -122,10 +122,10 @@
               <button type="button" class="filter-chip" data-clear="q">جستجو: {{ $searchQuery }} <svg><use href="#i-close"/></svg></button>
             @endif
             @foreach($selectedCats as $sc)
-              <button type="button" class="filter-chip" data-clear="cat:{{ $sc }}">{{ $sc }} <svg><use href="#i-close"/></svg></button>
+              <button type="button" class="filter-chip" data-clear="cat:{{ $sc }}">{{ $selectedCategoryLabels[$sc] ?? $sc }} <svg><use href="#i-close"/></svg></button>
             @endforeach
             @foreach($selectedBrands as $sb)
-              <button type="button" class="filter-chip" data-clear="brand:{{ $sb }}">{{ $sb }} <svg><use href="#i-close"/></svg></button>
+              <button type="button" class="filter-chip" data-clear="brand:{{ $sb }}">{{ $selectedBrandLabels[$sb] ?? $sb }} <svg><use href="#i-close"/></svg></button>
             @endforeach
             @if($onlySale)
               <button type="button" class="filter-chip" data-clear="sale">فقط تخفیف‌دار <svg><use href="#i-close"/></svg></button>

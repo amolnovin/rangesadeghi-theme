@@ -17,7 +17,7 @@
         <span class="current" id="product-breadcrumb-current">{{ rs_fa($product['title']) }}</span>
       </nav>
 
-      <div class="product-layout" data-single-product data-product-id="{{ $product['id'] }}" data-base-price="{{ $product['price'] }}" data-variations="{{ esc_attr(wp_json_encode($variations)) }}">
+      <div class="product-layout" data-single-product data-product-id="{{ $product['id'] }}" data-base-price="{{ $product['price'] }}" data-needs-preparation="{{ !empty($productConsent) ? '1' : '0' }}" data-variations="{{ esc_attr(wp_json_encode($variations)) }}">
         <div class="gallery">
           <div class="gallery-main" id="gallery-main">
             <img src="{{ $product['image'] }}" alt="{{ $product['title'] }}" fetchpriority="high">
@@ -75,7 +75,7 @@
               <span class="off" id="product-off">{{ rs_fa($product['discount']) }}%</span>
             @endif
             @if($product['in_stock'])
-              <span class="stock" id="product-stock"><svg><use href="#i-check"/></svg> موجود در انبار</span>
+              <span class="stock" id="product-stock"><svg><use href="#i-check"/></svg> {{ !empty($productConsent) ? 'نیازمند آماده‌سازی' : 'موجود در انبار' }}</span>
             @else
               <span class="stock is-out" id="product-stock">ناموجود</span>
             @endif

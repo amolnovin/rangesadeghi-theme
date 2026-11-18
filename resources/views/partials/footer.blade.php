@@ -120,7 +120,7 @@
 
   <aside class="side-drawer mobile-menu-drawer" id="mobile-menu-drawer" aria-hidden="true" aria-label="منوی موبایل">
     <div class="drawer-heading"><img src="{{ rs_img($general['logo_desktop'] ?? 'assets/images/logo.png') }}" alt="{{ get_bloginfo('name') }}"><button class="drawer-close" type="button" aria-label="بستن"><svg><use href="#i-close"/></svg></button></div>
-    <div class="mobile-drawer-tabs"><button class="active" type="button" data-drawer-tab="nav">منو</button><button type="button" id="drawer-categories-tab" data-drawer-tab="cats">دسته بندی ها</button></div>
+    <div class="mobile-drawer-tabs"><button class="active" type="button" data-drawer-tab="nav" aria-pressed="true">منو</button><button type="button" id="drawer-categories-tab" data-drawer-tab="cats" aria-pressed="false">دسته بندی ها</button></div>
     <nav class="mobile-drawer-nav" id="mobile-drawer-nav">
       <a href="{{ home_url('/') }}">صفحه اصلی</a>
       <a href="{{ rs_page_url('shop') }}">فروشگاه</a>
@@ -131,10 +131,11 @@
       <a href="{{ rs_page_url('stores') }}">فروشگاه های ما</a>
     </nav>
     <div class="mobile-drawer-categories" id="mobile-drawer-categories" hidden>
-      <details><summary>بخش هنری <svg><use href="#i-chevron-down"/></svg></summary><a href="{{ add_query_arg('cat', 'art', rs_page_url('shop')) }}">رنگ اکریلیک</a><a href="{{ add_query_arg('cat', 'art', rs_page_url('shop')) }}">رنگ روغن ها</a><a href="{{ add_query_arg('cat', 'art', rs_page_url('shop')) }}">رزین اپوکسی</a><a href="{{ add_query_arg('cat', 'art', rs_page_url('shop')) }}">سفالگری و مجسمه سازی</a></details>
-      <details><summary>پتینه <svg><use href="#i-chevron-down"/></svg></summary><a href="{{ add_query_arg('cat', 'patina', rs_page_url('shop')) }}">تکسچر ها</a><a href="{{ add_query_arg('cat', 'patina', rs_page_url('shop')) }}">میکروسمنت</a><a href="{{ add_query_arg('cat', 'patina', rs_page_url('shop')) }}">رنگ های دکوراتیو</a></details>
-      <details><summary>ابزار ها <svg><use href="#i-chevron-down"/></svg></summary><a href="{{ add_query_arg('cat', 'tools', rs_page_url('shop')) }}">قلم</a><a href="{{ add_query_arg('cat', 'tools', rs_page_url('shop')) }}">غلطک</a><a href="{{ add_query_arg('cat', 'tools', rs_page_url('shop')) }}">لیسه و کاردک</a></details>
-      <details><summary>شابلون و تابلو <svg><use href="#i-chevron-down"/></svg></summary><a href="{{ add_query_arg('cat', 'stencil', rs_page_url('shop')) }}">شابلون</a><a href="{{ rs_page_url('categories') }}">بوم ها</a></details>
+      @forelse($mobileCategories as $mobileCategory)
+        @include('partials.mobile-category', ['node' => $mobileCategory])
+      @empty
+        <p class="mobile-categories-empty">دسته‌بندی محصولی ثبت نشده است.</p>
+      @endforelse
     </div>
   </aside>
 

@@ -259,6 +259,8 @@ final class ShopComposer extends ViewComposer
             'searchQuery' => $searchQuery,
             'selectedCats' => $selectedCats,
             'selectedBrands' => $selectedBrands,
+            'selectedCategoryLabels' => $this->selectedTermLabels($selectedCats, 'product_cat'),
+            'selectedBrandLabels' => $this->selectedTermLabels($selectedBrands, 'product_brand'),
             'minPrice' => $minPrice,
             'maxPrice' => $maxPrice,
             'onlySale' => $onlySale,
@@ -415,6 +417,17 @@ final class ShopComposer extends ViewComposer
             if ($choices) $out[] = ['taxonomy' => $tax, 'name' => $attribute->attribute_label, 'choices' => $choices];
         }
         return $out;
+    }
+
+    /** Keep slugs for filter values but show the actual translated term name. */
+    private function selectedTermLabels(array $slugs, string $taxonomy): array
+    {
+        $labels = [];
+        foreach ($slugs as $slug) {
+            $term = taxonomy_exists($taxonomy) ? get_term_by('slug', $slug, $taxonomy) : false;
+            $labels[$slug] = $term && !is_wp_error($term) ? $term->name : str_replace('-', ' ', rawurldecode($slug));
+        }
+        return $labels;
     }
 
     private function resolveArchiveHeading(string $searchQuery): string

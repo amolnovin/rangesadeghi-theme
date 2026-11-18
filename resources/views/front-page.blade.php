@@ -269,9 +269,9 @@
             <span class="hx-store-icon"><svg><use href="#i-mail"/></svg></span>
             <h2>{{ $home['news_card_title'] ?? 'تخفیف‌ها را اول از همه بگیرید' }}</h2>
             <p>{{ $home['news_card_desc'] ?? 'با عضویت در خبرنامه، پیشنهادهای هفتگی و مقاله‌های تخصصی رنگ را دریافت کنید.' }}</p>
-            <form class="hx-news-form" data-newsletter-form>
+            <form class="hx-news-form" data-newsletter-form data-newsletter-action="rs_home_newsletter_subscribe">
+              <label class="rs-news-honeypot" aria-hidden="true">وب‌سایت<input name="newsletter_website" type="text" tabindex="-1" autocomplete="off"></label>
               <input type="text" name="contact" placeholder="ایمیل یا شماره موبایل" aria-label="ایمیل یا شماره موبایل" required>
-              @if(class_exists('WP_MC_Captcha') && class_exists('WP_MC_Core') && \WP_MC_Core::get('enabled', 1)){!! \WP_MC_Captcha::output() !!}@endif
               <button class="btn btn-primary" type="submit">عضویت</button>
             </form>
             <small class="hx-news-note">با عضویت، قوانین حریم خصوصی فروشگاه را می‌پذیرید.</small>

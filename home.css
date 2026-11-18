@@ -102,7 +102,8 @@
 .hx-mobile-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .hx-mobile-top .mobile-menu-button{width:44px;height:44px;border-radius:12px;border:1px solid #eee9e3;background:#fff;display:grid;place-items:center;color:#2b2b2b}
 .hx-mobile-top .mobile-menu-button svg{width:20px!important;height:20px!important}
-.hx-mobile-top .mobile-logo img{height:28px;width:auto;display:block}
+.hx-mobile-top .mobile-logo{width:auto;max-width:55%;display:flex;align-items:center}
+.hx-mobile-top .mobile-logo img{height:auto;width:auto;max-width:160px;max-height:48px;object-fit:contain;display:block}
 .hx-mobile-store{width:44px;height:44px;border-radius:12px;background:#f7f4f1;display:grid;place-items:center;color:#5d5d5d}
 .hx-mobile-store svg{width:19px!important;height:19px!important}
 .hx-header .mobile-search .search-form{display:flex;align-items:center;height:44px;background:#f6f4f1;border-radius:12px;padding:0 6px 0 12px;gap:6px}
@@ -326,8 +327,9 @@ body.hx-page[data-page]{background:#f6f4f1}
   .hx-utility,.hx-header .main-header{display:none}
   .hx-deal .product-track{grid-auto-columns:calc((100% - 24px)/2.6);gap:12px}
   .hx-hero{grid-template-columns:1fr;margin-top:12px}
-  .hx-slider{min-height:0;border-radius:16px}
-  .hx-slider .hero-slide img{min-height:0;aspect-ratio:16/10}
+  .hx-slider{height:auto;min-height:0;margin-top:0;overflow:hidden;border-radius:16px}
+  .hx-slider .hero-slide img{height:auto;min-height:0;aspect-ratio:16/10}
+  .hx-slider .hero-dots{bottom:12px}
   .hx-services{grid-template-columns:repeat(2,1fr)}
   .hx-colors{grid-template-columns:1fr;padding:16px;}
   .hx-blog-grid{grid-template-columns:repeat(2,1fr)}
@@ -387,7 +389,7 @@ body.hx-page[data-page]{background:#f6f4f1}
 /* Slider and promotional cards share a single grid row on desktop. */
 @media (min-width: 1025px){
   .hx-hero{align-items:stretch;grid-template-rows:minmax(340px,auto)}
-  .hx-slider{height:100%;min-width:0}
+  .hx-slider{min-width:0;min-height:0;align-self:stretch}
   .hx-slider .hero-slide.active{position:absolute}
   .hx-slider .hero-slide picture,.hx-slider .hero-slide a{display:block;height:100%}
   .hx-slider .hero-slide img{height:100%;min-height:0}
@@ -398,3 +400,5 @@ body.hx-page[data-page]{background:#f6f4f1}
 .mobile-search[hidden]{display:none!important}
 
 @media (max-width:1024px){.hx-hero-side{display:none!important}}
+
+.rs-news-honeypot{position:absolute!important;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}

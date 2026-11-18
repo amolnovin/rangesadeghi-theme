@@ -48,6 +48,7 @@ final class AppComposer extends ViewComposer
             'addressFa' => rs_fa((string) ($general['address'] ?? 'مازندران، آمل، خیابان طالب آملی، دریای ۳۰/۱، پلاک ۴۴۴')),
             'addressShortFa' => rs_fa((string) ($general['address_short'] ?? 'آمل، خیابان طالب آملی، نبش دریای ۳۰/۱ — پلاک ۴۴۴')),
             'megaCategories' => $megaCategories,
+            'mobileCategories' => $this->resolveMobileCategories(),
             'popularSearches' => $popularSearches,
             'cartCount' => $cartCount,
             'cartCountFa' => rs_fa($cartCount),
@@ -104,14 +105,47 @@ final class AppComposer extends ViewComposer
         $fallback = [];
         foreach (DemoCatalog::categories() as $cat) {
             $fallback[] = [
-                'name' => $cat['name'],
+                'name' => $cat['title'],
                 'slug' => $cat['slug'],
                 'url' => add_query_arg('cat', $cat['slug'], rs_page_url('shop')),
-                'sub' => $cat['sub'],
+                'sub' => $cat['short_title'] ?? '',
                 'icon' => $icons[$cat['slug']] ?? 'i-palette',
             ];
         }
         return $fallback;
+    }
+
+    /** All product categories in their WooCommerce hierarchy for the mobile drawer. */
+    private function resolveMobileCategories(): array
+    {
+        if (rs_is_wc() && taxonomy_exists('product_cat')) {
+            $terms = get_terms(['taxonomy' => 'product_cat', 'hide_empty' => false, 'orderby' => 'name', 'order' => 'ASC']);
+            if (!is_array($terms)) return [];
+            $byParent = [];
+            foreach ($terms as $term) {
+                $link = get_term_link($term);
+                if (is_wp_error($link)) continue;
+                $byParent[(int) $term->parent][] = ['id' => (int) $term->term_id, 'name' => $term->name, 'url' => (string) $link];
+            }
+            $tree = function (int $parent, array $visited = []) use (&$tree, $byParent): array {
+                $nodes = [];
+                foreach ($byParent[$parent] ?? [] as $node) {
+                    if (isset($visited[$node['id']])) continue;
+                    $visited[$node['id']] = true;
+                    $node['children'] = $tree($node['id'], $visited);
+                    $nodes[] = $node;
+                    unset($visited[$node['id']]);
+                }
+                return $nodes;
+            };
+            return $tree(0);
+        }
+        $nodes = [];
+        foreach (DemoCatalog::categories() as $cat) {
+            $url = add_query_arg('cat', $cat['slug'], rs_page_url('shop'));
+            $nodes[] = ['name' => $cat['title'], 'url' => $url, 'children' => []];
+        }
+        return $nodes;
     }
 
     private function detectCurrentNav(): string

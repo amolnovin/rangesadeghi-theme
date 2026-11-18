@@ -452,7 +452,8 @@ final class WooCommerceServiceProvider extends ServiceProvider
         $text = trim((string) rs_option('product.consent_text', ''));
         $raw = \App\Support\Persian::toEn((string) rs_option('product.consent_category_ids', ''));
         $ids = array_filter(array_map('absint', preg_split('/[\s,،]+/u', trim($raw))));
-        if ($text === '' || !$ids || !function_exists('has_term')) return '';
+        if (!$ids || !function_exists('has_term')) return '';
+        if ($text === '') $text = 'این محصول نیازمند آماده‌سازی است و شرایط خرید آن را می‌پذیرم.';
         $product = wc_get_product($productId);
         if ($product && $product->is_type('variation')) $productId = $product->get_parent_id();
         foreach ($ids as $id) {
