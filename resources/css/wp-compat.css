@@ -247,3 +247,25 @@ body.admin-bar .main-header.is-sticky {
 .rs-order-result .woocommerce-bacs-bank-details p { margin:6px 0; line-height:1.9; }
 .rs-order-result .woocommerce-bacs-bank-details bdi { display:inline-block; font-size:16px; font-weight:700; color:#3a3020; }
 .rs-order-result .rs-payment-status { color:#98631a; }
+
+/* Order status progress and a dedicated print-only purchase invoice. */
+.od-steps:after { width: calc(0.82 * var(--rs-progress, 0%)) !important; max-width: 82%; }
+.rs-print-invoice { display:none; }
+@media print {
+  @page { size:A4; margin:14mm; }
+  body:has(.rs-print-invoice) > :not(main) { display:none !important; }
+  main:has(.rs-print-invoice) .page-container > :not(.rs-print-invoice) { display:none !important; }
+  main:has(.rs-print-invoice), main:has(.rs-print-invoice) .page-container { display:block !important; margin:0 !important; padding:0 !important; width:100% !important; max-width:none !important; }
+  .rs-print-invoice { display:block !important; color:#202020; font-size:12px; direction:rtl; line-height:1.7; }
+  .rs-print-invoice .rs-invoice-header { display:flex; justify-content:space-between; gap:20px; border-bottom:3px solid #333; padding-bottom:14px; }
+  .rs-print-invoice .rs-invoice-header strong { font-size:22px; }
+  .rs-print-invoice p { margin:4px 0; }
+  .rs-print-invoice .rs-invoice-customer { padding:15px 0; }
+  .rs-print-invoice table { width:100%; border-collapse:collapse; }
+  .rs-print-invoice th, .rs-print-invoice td { text-align:right; padding:9px; border:1px solid #bbb; }
+  .rs-print-invoice th { background:#f1f1f1 !important; }
+  .rs-print-invoice tr { break-inside:avoid; }
+  .rs-print-invoice .rs-invoice-totals { margin:18px 0; width:50%; margin-right:auto; }
+  .rs-print-invoice .rs-invoice-totals div { display:flex; justify-content:space-between; gap:15px; padding:5px; border-bottom:1px solid #ddd; }
+  .rs-print-invoice footer { margin-top:24px; border-top:1px solid #bbb; padding-top:12px; }
+}

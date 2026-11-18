@@ -82,6 +82,15 @@ rs_assert(str_contains($cartWithHistory, 'Variable integration product'), 'Cart 
 $accountView = rs_view('woocommerce.my-account', ['dataPage' => 'account']);
 rs_assert(str_contains($accountView, 'account-profile-form') && str_contains($accountView, 'panel-orders'), 'Account dashboard did not render');
 rs_assert(str_contains($accountView, 'Variable integration product'), 'Account order containing variation did not render');
+rs_assert(str_contains($accountView, 'کیف پول در حال حاضر در دسترس نیست.'), 'Unavailable wallet must not display fictional data');
+// Exercise the plugin's account endpoint contract without redistributing the licensed plugin.
+class Amol_Wallet_Frontend { public static function account_endpoint_content() { echo '<div id="test-wallet-endpoint">Wallet endpoint</div>'; } }
+class Amol_Wallet_Points { public static function is_enabled() { return true; } public static function get_points($userId) { return 17; } }
+add_action('woocommerce_account_wallet_endpoint', ['Amol_Wallet_Frontend', 'account_endpoint_content']);
+$walletView = rs_view('woocommerce.my-account', ['dataPage' => 'account']);
+rs_assert(str_contains($walletView, 'test-wallet-endpoint') && str_contains($walletView, '۱۷'), 'Wallet endpoint or real points were not rendered');
+remove_action('woocommerce_account_wallet_endpoint', ['Amol_Wallet_Frontend', 'account_endpoint_content']);
+
 $_GET['order_id'] = (string) $order->get_id();
 $orderView = rs_view('woocommerce.order-details', ['dataPage' => 'order']);
 rs_assert(str_contains($orderView, 'Variable integration product'), 'Order details containing variation did not render');
@@ -314,12 +323,32 @@ $order->set_payment_method('test_gateway'); $order->save();
 ob_start(); wc_get_template('checkout/thankyou.php', ['order' => $order]); $completed = (string) ob_get_clean();
 remove_filter('woocommerce_order_number', $prefixOrderNumber);
 rs_assert(str_contains($completed, 'data-copy="' . $order->get_id() . '"') && !str_contains($completed, 'data-copy="RS-'), 'Order number prefix not removed from display and copy');
-rs_assert(str_contains($completed, 'is-complete') && str_contains($completed, 'Real carrier') && str_contains($completed, 'Morning') && str_contains($completed, '123 Real Street'), 'Real order shipping details missing from result');
-rs_assert(str_contains($completed, 'i-box') && str_contains($completed, 'i-bag') && str_contains($completed, esc_url($order->get_view_order_url())), 'Result action links or icons missing');
+rs_assert(str_contains($completed, 'is-complete') && str_contains($completed, 'Real carrier') && str_contains($completed, 'Morning'), 'Real order shipping details missing from result');
+rs_assert(str_contains($completed, 'i-box') && str_contains($completed, 'i-bag') && str_contains($completed, esc_url(rs_page_url('order-tracking', ['order_id' => $order->get_id()]))), 'Result action links or icons missing');
 rs_assert(str_contains($completed, 'co-success-thumbs') && str_contains($completed, 'co-timeline'), 'Reference order items or timeline missing');
+$gridDom = new DOMDocument(); @$gridDom->loadHTML('<?xml encoding="utf-8" ?>' . $completed); $gridXpath = new DOMXPath($gridDom);
+$grid = $gridXpath->query("//*[contains(concat(' ', normalize-space(@class), ' '), ' co-success-grid ')]")->item(0);
+rs_assert($grid && !str_contains($grid->textContent, 'آدرس تحویل') && !str_contains($grid->textContent, 'تاریخ سفارش') && !str_contains($grid->textContent, 'ایمیل'), 'Removed order result fields still shown');
 $dom = new DOMDocument(); @$dom->loadHTML('<?xml encoding="utf-8" ?>' . $completed); $xpath = new DOMXPath($dom);
 rs_assert($xpath->query("//*[contains(concat(' ', normalize-space(@class), ' '), ' co-success ')]//*[@id='test-gateway-content']")->length === 1, 'Gateway content is outside the result card');
 rs_assert($xpath->query("//*[contains(concat(' ', normalize-space(@class), ' '), ' co-success ')]//*[contains(concat(' ', normalize-space(@class), ' '), ' woocommerce-order-details ')]")->length === 1, 'Default order hook output must remain inside the card');
+// Account summary and tracking use WooCommerce status settings, not a fabricated prefix.
+$_GET['order_id'] = (string) $order->get_id();
+$prefixed = static fn($number) => 'RS-' . $number;
+add_filter('woocommerce_order_number', $prefixed);
+$orderPage = rs_view('woocommerce.order-details', ['dataPage' => 'order']);
+remove_filter('woocommerce_order_number', $prefixed);
+rs_assert(!str_contains($orderPage, 'RS-RS-') && !str_contains($orderPage, 'جزئیات سفارش <b id="od-code">RS-') && str_contains($orderPage, 'rs-print-invoice'), 'Order details number or dedicated invoice incorrect');
+rs_assert(!str_contains($orderPage, 'data-cancel-order="' . $order->get_id() . '"'), 'Processing order must not be cancellable');
+$options = rs_app()->make('options');
+$options->update(['shop' => ['tracking_shipping' => 'wc-processing']]);
+$orderPage = rs_view('woocommerce.order-details', ['dataPage' => 'order']);
+rs_assert(str_contains($orderPage, '--rs-progress:75%'), 'Configured shipping status not reflected in tracking');
+$order->set_status('on-hold'); $order->save();
+$orderPage = rs_view('woocommerce.order-details', ['dataPage' => 'order']);
+rs_assert(str_contains($orderPage, '--rs-progress:0%') && str_contains($orderPage, 'data-cancel-order="' . $order->get_id() . '"'), 'On-hold order tracking or cancellation incorrect');
+$order->set_status('processing'); $order->save();
+unset($_GET['order_id']);
 // Custom sequential order identifiers without the theme prefix must remain untouched for guests.
 $customOrderNumber = static fn($number) => 'INV-123';
 add_filter('woocommerce_order_number', $customOrderNumber);
@@ -328,7 +357,7 @@ ob_start(); wc_get_template('checkout/thankyou.php', ['order' => $order]); $gues
 wp_set_current_user($user->ID);
 remove_filter('woocommerce_order_number', $customOrderNumber);
 rs_assert(str_contains($guestResult, 'data-copy="INV-123"') && str_contains($guestResult, 'i-bag'), 'Custom order number or shop link missing for guest');
-rs_assert(!str_contains($guestResult, esc_url($order->get_view_order_url())) && !str_contains($guestResult, 'ایمیل'), 'Guest must not receive an inaccessible account link or billing email');
+rs_assert(!str_contains($guestResult, esc_url(rs_page_url('order-tracking', ['order_id' => $order->get_id()]))) && !str_contains($guestResult, 'ایمیل'), 'Guest must not receive an inaccessible account link or billing email');
 
 
 $order->set_status('failed');

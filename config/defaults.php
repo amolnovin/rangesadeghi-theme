@@ -184,6 +184,10 @@ return [
      * ۳. تنظیمات فروشگاه، سبد خرید و تسویه حساب ووکامرس
      * ====================================================================== */
     'shop' => [
+        'tracking_registered' => 'wc-pending',
+        'tracking_payment' => 'wc-processing',
+        'tracking_preparing' => '',
+        'tracking_shipping' => '',
         'per_page' => 9,
         'default_view' => 'grid', // grid | list
         'default_sort' => 'default',

@@ -863,12 +863,12 @@ final class WooCommerceServiceProvider extends ServiceProvider
             wp_send_json_error(['message' => 'سفارش یافت نشد یا دسترسی ندارید.']);
         }
 
-        if (!in_array($order->get_status(), ['pending', 'on-hold', 'processing'], true)) {
+        if (!in_array($order->get_status(), ['pending', 'on-hold'], true)) {
             wp_send_json_error(['message' => 'این سفارش در مرحله‌ای است که امکان لغو خودکار ندارد؛ با پشتیبانی تماس بگیرید.']);
         }
 
         $order->update_status('cancelled', 'لغو سفارش توسط مشتری از پنل کاربری.');
-        wp_send_json_success(['message' => 'سفارش لغو شد و درخواست بازگشت وجه ثبت گردید.']);
+        wp_send_json_success(['message' => 'سفارش لغو شد. برای پیگیری بازگشت وجه با فروشگاه تماس بگیرید.']);
     }
 
     public function ajaxOrderReorder(): void

@@ -235,6 +235,17 @@
         <div class="rs-card">
           <h2>تنظیمات ارسال، سبد خرید و تسویه حساب ۴ مرحله‌ای</h2>
           <div class="rs-grid-2">
+            @foreach(['registered' => 'ثبت سفارش', 'payment' => 'تأیید پرداخت', 'preparing' => 'آماده‌سازی', 'shipping' => 'ارسال'] as $trackingKey => $trackingLabel)
+              <div class="rs-field"><label>وضعیت ووکامرس برای {{ $trackingLabel }}</label>
+                <select data-opt="shop.tracking_{{ $trackingKey }}">
+                  <option value="">انتخاب نشده</option>
+                  @foreach((rs_is_wc() ? wc_get_order_statuses() : []) as $statusKey => $statusName)
+                    <option value="{{ $statusKey }}" {{ ($opts['shop']['tracking_' . $trackingKey] ?? '') === $statusKey ? 'selected' : '' }}>{{ $statusName }}</option>
+                  @endforeach
+                </select>
+              </div>
+            @endforeach
+            <div class="rs-field rs-full"><small>هر وضعیت نشان‌دهنده رسیدن سفارش به همان مرحله و مراحل قبل از آن است. تحویل برای وضعیت تکمیل‌شده نمایش داده می‌شود؛ وضعیت‌های لغوشده، مسترد و ناموفق پیشرفت ندارند.</small></div>
             <div class="rs-field"><label>سقف ارسال رایگان (تومان)</label><input type="number" data-opt="shop.free_shipping_threshold" value="{{ $opts['shop']['free_shipping_threshold'] ?? 10000000 }}" dir="ltr"></div>
             <div class="rs-field"><label>هزینه بسته‌بندی هدیه (تومان)</label><input type="number" data-opt="shop.gift_wrap_cost" value="{{ $opts['shop']['gift_wrap_cost'] ?? 35000 }}" dir="ltr"></div>
             <div class="rs-field"><label>عنوان پیک فروشگاه</label><input type="text" data-opt="shop.courier_title" value="{{ $opts['shop']['courier_title'] ?? '' }}"></div>

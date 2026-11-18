@@ -38,6 +38,8 @@ final class AssetsServiceProvider extends ServiceProvider
         $jsAbs = $this->app->basePath($jsRel);
         $jsVer = is_file($jsAbs) ? (string) filemtime($jsAbs) : '2.1.0';
 
+        if (rs_is_wc() && is_account_page() && has_action('woocommerce_account_wallet_endpoint', ['Amol_Wallet_Frontend', 'account_endpoint_content'])) wp_enqueue_script('jquery');
+
         wp_enqueue_script('rangesadeghi-theme', $this->app->baseUri($jsRel), [], $jsVer, true);
 
         $popularRaw = (string) rs_option('general.popular_searches', 'مولتی سورفیس ریچ,تار عنکبوتی ساندورا,اکریلیک سوداکو,تکسچر کارن');

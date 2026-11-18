@@ -204,7 +204,7 @@ final class CheckoutCartComposer extends ViewComposer
                 'job' => (string) get_user_meta($uid, '_rs_job_title', true),
                 'orders_count_fa' => rs_fa(count($ordersList)),
                 'total_spent_fa' => rs_price($totalSpent),
-                'points_fa' => rs_fa((int) floor($totalSpent / 20000)),
+                'points_fa' => has_action('woocommerce_account_wallet_endpoint', ['Amol_Wallet_Frontend', 'account_endpoint_content']) && class_exists('Amol_Wallet_Points') && \Amol_Wallet_Points::is_enabled() ? rs_fa(\Amol_Wallet_Points::get_points($uid)) : '—',
                 'logout_url' => wp_logout_url(home_url('/')),
             ],
             'savedAddresses' => $addresses,
@@ -293,23 +293,25 @@ final class CheckoutCartComposer extends ViewComposer
                 'qty_fa' => rs_fa($item->get_quantity()),
                 'unit_fa' => rs_price($unit),
                 'total_fa' => rs_price(Persian::toToman($item->get_total())),
+                'invoice_total' => wc_price($item->get_total(), ['currency' => $order->get_currency()]),
+                'invoice_unit' => wc_price($item->get_quantity() > 0 ? $item->get_total() / $item->get_quantity() : 0, ['currency' => $order->get_currency()]),
             ];
         }
 
         $createdTs = $order->get_date_created() ? $order->get_date_created()->getTimestamp() : time();
         $detailUrl = add_query_arg(
-            ['order_id' => $order->get_id(), 'key' => $order->get_order_key()],
+            ['order_id' => $order->get_id()],
             rs_page_url('order-details')
         );
 
         $data = [
             'id' => $order->get_id(),
-            'number_fa' => 'RS-' . rs_fa($order->get_order_number()),
+            'number_fa' => rs_fa(preg_replace('/^RS\s*-\s*/i', '', (string) $order->get_order_number()) ?? (string) $order->get_order_number()),
             'status_raw' => $status,
             'status_label' => $st['label'],
             'badge_class' => $st['badge'],
             'tab_group' => $st['tab'],
-            'step_index' => $st['step'],
+            'step_index' => $this->orderTrackingStep($order),
             'date_fa' => Persian::jalaliDate($createdTs),
             'total_fa' => rs_price(Persian::toToman($order->get_total())),
             'subtotal_fa' => rs_price(Persian::toToman($order->get_subtotal())),
@@ -325,7 +327,7 @@ final class CheckoutCartComposer extends ViewComposer
             'items' => $items,
             'items_count_fa' => rs_fa($order->get_item_count()),
             'detail_url' => $detailUrl,
-            'can_cancel' => in_array($status, ['pending', 'on-hold', 'processing'], true),
+            'can_cancel' => in_array($status, ['pending', 'on-hold'], true),
         ];
 
         if ($full) {
@@ -339,10 +341,26 @@ final class CheckoutCartComposer extends ViewComposer
                 $order->get_billing_address_2(),
             ])));
             $data['postcode_fa'] = rs_fa($order->get_billing_postcode());
-            $data['transaction_id'] = $order->get_transaction_id() ?: ('TRX-' . $order->get_id());
+            $data['invoice_totals'] = $order->get_order_item_totals();
+            $data['invoice_billing'] = wp_strip_all_tags(str_replace('<br/>', ', ', $order->get_formatted_billing_address()));
+            $data['transaction_id'] = $order->get_transaction_id() ?: '—';
         }
 
         return $data;
+    }
+
+    /** Map a current WooCommerce status to the highest configured milestone. */
+    private function orderTrackingStep(WC_Order $order): int
+    {
+        $status = $order->get_status();
+        if (in_array($status, ['cancelled', 'failed', 'refunded'], true)) return 0;
+        if ($status === 'completed') return 5;
+        $step = $order->is_paid() ? 2 : 1;
+        foreach (['registered', 'payment', 'preparing', 'shipping'] as $index => $stage) {
+            $configured = (string) rs_option('shop.tracking_' . $stage, '');
+            if ($configured !== '' && $configured === 'wc-' . $status) $step = max($step, $index + 1);
+        }
+        return $step;
     }
 
     /**
