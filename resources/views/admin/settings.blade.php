@@ -162,11 +162,11 @@
             <div class="rs-field"><label>فاصله تعویض خودکار اسلاید (میلی‌ثانیه)</label><input type="number" data-opt="home.hero_autoplay_ms" value="{{ $opts['home']['hero_autoplay_ms'] ?? 5000 }}" dir="ltr"></div>
           </div>
           <div class="rs-field" style="margin-top:10px">
-            <label>اسلایدهای هیرو (ساختار JSON — دسکتاپ، موبایل، متن alt و لینک اختیاری)</label>
+            <label>اسلایدهای هیرو</label>
             <textarea rows="7" data-opt-json="home.hero_slides" dir="ltr">{{ wp_json_encode($opts['home']['hero_slides'] ?? [], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</textarea>
           </div>
           <div class="rs-field" style="margin-top:10px">
-            <label>دو بنر کناری اسلایدر دسکتاپ (JSON)</label>
+            <label>بنرهای کناری اسلایدر دسکتاپ</label>
             <textarea rows="6" data-opt-json="home.hero_side_cards" dir="ltr">{{ wp_json_encode($opts['home']['hero_side_cards'] ?? [], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</textarea>
           </div>
         </div>
@@ -192,7 +192,7 @@
             <div class="rs-field"><label>تعداد مقالات مجله در صفحه اول</label><input type="number" data-opt="home.blog_count" value="{{ $opts['home']['blog_count'] ?? 3 }}" dir="ltr"></div>
             <div class="rs-field rs-full"><label>توضیحات بخش پالت رنگ</label><textarea rows="2" data-opt="home.palette_desc">{{ $opts['home']['palette_desc'] ?? '' }}</textarea></div>
             <div class="rs-field rs-full"><label>کارت‌های پالت رنگ هفته (JSON)</label><textarea rows="5" data-opt-json="home.palette_swatches" dir="ltr">{{ wp_json_encode($opts['home']['palette_swatches'] ?? [], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) }}</textarea></div>
-            <div class="rs-field rs-full"><label>کارت‌های خرید بر اساس پروژه (JSON)</label><textarea rows="5" data-opt-json="home.projects" dir="ltr">{{ wp_json_encode($opts['home']['projects'] ?? [], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</textarea></div>
+            <div class="rs-field rs-full"><label>کارت‌های خرید بر اساس پروژه</label><textarea rows="5" data-opt-json="home.projects" dir="ltr">{{ wp_json_encode($opts['home']['projects'] ?? [], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</textarea></div>
           </div>
         </div>
       </section>
