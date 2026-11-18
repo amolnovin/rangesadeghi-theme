@@ -298,6 +298,39 @@ wc_get_template('checkout/thankyou.php', ['order' => $order]);
 $received = (string) ob_get_clean();
 rs_assert(str_contains($received, 'rs-order-result') && str_contains($received, 'woocommerce-thankyou-order-details'), 'Order received details missing');
 rs_assert(in_array('before', $called, true) && in_array('thankyou', $called, true), 'Thankyou hooks not invoked');
+rs_assert(!str_contains($received, 'is-complete') && str_contains($received, 'پرداخت این سفارش هنوز تکمیل نشده است'), 'Pending payment shown as completed');
+// The custom result card uses real order data and retains extension output within the card.
+$order->set_status('processing');
+$order->set_payment_method_title('Test gateway');
+$order->set_shipping_first_name('Real'); $order->set_shipping_last_name('Customer');
+$order->set_shipping_country('US'); $order->set_shipping_state('CA');
+$order->set_shipping_city('Los Angeles'); $order->set_shipping_address_1('123 Real Street');
+$order->update_meta_data('_rs_delivery_day', '2030-02-01'); $order->update_meta_data('_rs_delivery_slot', 'Morning');
+$shipItem = new WC_Order_Item_Shipping(); $shipItem->set_method_id('flat_rate'); $shipItem->set_method_title('Real carrier'); $shipItem->set_total(30); $order->add_item($shipItem); $order->save();
+$prefixOrderNumber = static fn($number) => 'RS-' . $number;
+add_filter('woocommerce_order_number', $prefixOrderNumber);
+add_action('woocommerce_thankyou_test_gateway', static function () { echo '<p id="test-gateway-content">Gateway message</p>'; });
+$order->set_payment_method('test_gateway'); $order->save();
+ob_start(); wc_get_template('checkout/thankyou.php', ['order' => $order]); $completed = (string) ob_get_clean();
+remove_filter('woocommerce_order_number', $prefixOrderNumber);
+rs_assert(str_contains($completed, 'data-copy="' . $order->get_id() . '"') && !str_contains($completed, 'data-copy="RS-'), 'Order number prefix not removed from display and copy');
+rs_assert(str_contains($completed, 'is-complete') && str_contains($completed, 'Real carrier') && str_contains($completed, 'Morning') && str_contains($completed, '123 Real Street'), 'Real order shipping details missing from result');
+rs_assert(str_contains($completed, 'i-box') && str_contains($completed, 'i-bag') && str_contains($completed, esc_url($order->get_view_order_url())), 'Result action links or icons missing');
+rs_assert(str_contains($completed, 'co-success-thumbs') && str_contains($completed, 'co-timeline'), 'Reference order items or timeline missing');
+$dom = new DOMDocument(); @$dom->loadHTML('<?xml encoding="utf-8" ?>' . $completed); $xpath = new DOMXPath($dom);
+rs_assert($xpath->query("//*[contains(concat(' ', normalize-space(@class), ' '), ' co-success ')]//*[@id='test-gateway-content']")->length === 1, 'Gateway content is outside the result card');
+rs_assert($xpath->query("//*[contains(concat(' ', normalize-space(@class), ' '), ' co-success ')]//*[contains(concat(' ', normalize-space(@class), ' '), ' woocommerce-order-details ')]")->length === 1, 'Default order hook output must remain inside the card');
+// Custom sequential order identifiers without the theme prefix must remain untouched for guests.
+$customOrderNumber = static fn($number) => 'INV-123';
+add_filter('woocommerce_order_number', $customOrderNumber);
+wp_set_current_user(0);
+ob_start(); wc_get_template('checkout/thankyou.php', ['order' => $order]); $guestResult = (string) ob_get_clean();
+wp_set_current_user($user->ID);
+remove_filter('woocommerce_order_number', $customOrderNumber);
+rs_assert(str_contains($guestResult, 'data-copy="INV-123"') && str_contains($guestResult, 'i-bag'), 'Custom order number or shop link missing for guest');
+rs_assert(!str_contains($guestResult, esc_url($order->get_view_order_url())) && !str_contains($guestResult, 'ایمیل'), 'Guest must not receive an inaccessible account link or billing email');
+
+
 $order->set_status('failed');
 $order->save();
 ob_start();
@@ -314,6 +347,10 @@ $cardOrder->add_product($product, 1); $cardOrder->set_payment_method($card); $ca
 $result = $card->process_payment($cardOrder->get_id());
 $cardOrder = wc_get_order($cardOrder->get_id());
 rs_assert($result['result'] === 'success' && $cardOrder->has_status('on-hold') && !$cardOrder->is_paid(), 'Card transfer incorrectly marked payment complete');
+ob_start(); wc_get_template('checkout/thankyou.php', ['order' => $cardOrder]); $cardResult = (string) ob_get_clean();
+rs_assert(str_contains($cardResult, 'is-complete') && str_contains($cardResult, 'در انتظار واریز و تأیید فروشگاه') && !str_contains($cardResult, 'مبلغ پرداخت‌شده'), 'Card transfer confirmation must not claim payment');
+rs_assert(str_contains($cardResult, '1234567812345678'), 'Card instructions not shown in order result');
+
 ob_start(); $card->thankyouPage($cardOrder->get_id()); $cardText = (string) ob_get_clean();
 rs_assert(str_contains($cardText, '1234567812345678') && str_contains($cardText, 'Test Merchant'), 'Configured transfer details missing on thank-you page');
 $cardOrder->delete(true);
