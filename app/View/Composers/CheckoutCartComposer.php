@@ -300,7 +300,7 @@ final class CheckoutCartComposer extends ViewComposer
 
         $createdTs = $order->get_date_created() ? $order->get_date_created()->getTimestamp() : time();
         $detailUrl = add_query_arg(
-            ['order_id' => $order->get_id(), 'key' => $order->get_order_key()],
+            ['order_id' => $order->get_id()],
             rs_page_url('order-details')
         );
 
@@ -343,7 +343,6 @@ final class CheckoutCartComposer extends ViewComposer
             $data['postcode_fa'] = rs_fa($order->get_billing_postcode());
             $data['invoice_totals'] = $order->get_order_item_totals();
             $data['invoice_billing'] = wp_strip_all_tags(str_replace('<br/>', ', ', $order->get_formatted_billing_address()));
-            $data['invoice_currency'] = $order->get_currency();
             $data['transaction_id'] = $order->get_transaction_id() ?: '—';
         }
 

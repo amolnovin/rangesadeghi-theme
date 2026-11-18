@@ -82,6 +82,15 @@ rs_assert(str_contains($cartWithHistory, 'Variable integration product'), 'Cart 
 $accountView = rs_view('woocommerce.my-account', ['dataPage' => 'account']);
 rs_assert(str_contains($accountView, 'account-profile-form') && str_contains($accountView, 'panel-orders'), 'Account dashboard did not render');
 rs_assert(str_contains($accountView, 'Variable integration product'), 'Account order containing variation did not render');
+rs_assert(str_contains($accountView, 'کیف پول در حال حاضر در دسترس نیست.'), 'Unavailable wallet must not display fictional data');
+// Exercise the plugin's account endpoint contract without redistributing the licensed plugin.
+class Amol_Wallet_Frontend { public static function account_endpoint_content() { echo '<div id="test-wallet-endpoint">Wallet endpoint</div>'; } }
+class Amol_Wallet_Points { public static function is_enabled() { return true; } public static function get_points($userId) { return 17; } }
+add_action('woocommerce_account_wallet_endpoint', ['Amol_Wallet_Frontend', 'account_endpoint_content']);
+$walletView = rs_view('woocommerce.my-account', ['dataPage' => 'account']);
+rs_assert(str_contains($walletView, 'test-wallet-endpoint') && str_contains($walletView, '۱۷'), 'Wallet endpoint or real points were not rendered');
+remove_action('woocommerce_account_wallet_endpoint', ['Amol_Wallet_Frontend', 'account_endpoint_content']);
+
 $_GET['order_id'] = (string) $order->get_id();
 $orderView = rs_view('woocommerce.order-details', ['dataPage' => 'order']);
 rs_assert(str_contains($orderView, 'Variable integration product'), 'Order details containing variation did not render');
