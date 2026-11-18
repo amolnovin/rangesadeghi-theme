@@ -470,6 +470,12 @@
     if (!grid || !sidebar || !pagination) return;
     const buildUrl = () => {
       const url = new URL(window.location.href);
+      if (sidebar.dataset.filterBase) {
+        const base = new URL(sidebar.dataset.filterBase, window.location.href);
+        url.pathname = base.pathname;
+        ['product_cat', 'product_brand', 'taxonomy', 'term'].forEach(k => url.searchParams.delete(k));
+        base.searchParams.forEach((v, k) => url.searchParams.set(k, v));
+      }
       url.pathname = url.pathname.replace(/\/page\/\d+\/?$/, '/');
       Array.from(url.searchParams.keys()).forEach(k => {
         if (['cat','brand','min_price','max_price','sale','in_stock','rs_sort','view','paged'].includes(k) || k.startsWith('rs_attr_')) url.searchParams.delete(k);

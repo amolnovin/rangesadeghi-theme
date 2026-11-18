@@ -424,6 +424,26 @@ $opts->update(['home' => ['category_ids' => $child['term_id'] . ',' . $category[
 $homeData = rs_app()->make(App\View\Composers\FrontPageComposer::class)->with([]);
 rs_assert(count($homeData['homeCategories']) === 2 && $homeData['homeCategories'][0]['name'] === 'Consent child', 'Homepage selected categories or order incorrect');
 $opts->update(['home' => ['category_ids' => '']]);
+// Render all pagination modes with actual matching products and verify the last page.
+$pageIds = [];
+for ($i = 0; $i < 4; $i++) {
+    $pageProduct = new WC_Product_Simple(); $pageProduct->set_name('Pagination fixture ' . $i);
+    $pageProduct->set_regular_price('100'); $pageProduct->set_status('publish'); $pageProduct->save(); $pageIds[] = $pageProduct->get_id();
+}
+$opts->update(['shop' => ['per_page' => 3, 'pagination_mode' => 'numbers']]);
+$_GET['s'] = 'Pagination fixture';
+$pagedData = $shopComposer->buildShopData(['s' => 'Pagination fixture', 'paged' => 2]);
+rs_assert($pagedData['total'] === 4 && $pagedData['total_pages'] === 2 && count($pagedData['products']) === 1, 'Pagination query returned wrong results');
+$numberHtml = rs_view('woocommerce.archive-product', ['dataPage' => 'shop']);
+rs_assert(str_contains($numberHtml, 'aria-current="page"'), 'Number pagination not rendered');
+foreach (['more', 'infinite'] as $mode) {
+    $opts->update(['shop' => ['pagination_mode' => $mode]]);
+    $pagingHtml = rs_view('woocommerce.archive-product', ['dataPage' => 'shop']);
+    rs_assert(str_contains($pagingHtml, 'rs-load-more') && str_contains($pagingHtml, 'data-mode="' . $mode . '"'), 'Load more pagination not rendered: ' . $mode);
+}
+unset($_GET['s']);
+foreach ($pageIds as $id) wp_delete_post($id, true);
+$opts->update(['shop' => ['per_page' => 9, 'pagination_mode' => 'numbers']]);
 $opts->update(['product' => ['consent_category_ids' => (string) $category['term_id'], 'consent_text' => 'Consent sample text']]);
 $wcProvider = rs_app()->make(App\Providers\WooCommerceServiceProvider::class);
 rs_assert($wcProvider->productConsentText($product->get_id()) === 'Consent sample text', 'Category consent did not apply');

@@ -27,7 +27,7 @@
       </header>
 
       <div class="shop-layout">
-        <aside class="shop-sidebar" id="shop-sidebar" aria-label="فیلتر محصولات">
+        <aside class="shop-sidebar" id="shop-sidebar" aria-label="فیلتر محصولات" data-filter-base="{{ $filterBaseUrl }}">
           <button type="button" class="rs-close-filters mobile-only" aria-label="بستن فیلترها">بستن فیلترها ✕</button>
           @if(!empty($shopCfg['filter_categories']))
           <div class="filter-card">
@@ -158,7 +158,7 @@
                 @for($i = 1; $i <= $total_pages; $i++)
                   @if($i === 1 || $i === $total_pages || abs($i - $page) <= 2)
                     @if($lastShown && $i - $lastShown > 1)<span aria-hidden="true">…</span>@endif
-                    <a href="{{ add_query_arg('paged', $i) }}" class="{{ $i === $page ? 'active' : '' }}" {{ $i === $page ? 'aria-current="page"' : '' }}>{{ rs_fa($i) }}</a>
+                    <a href="{{ add_query_arg('paged', $i) }}" class="{{ $i === $page ? 'active' : '' }}" @if($i === $page) aria-current="page" @endif>{{ rs_fa($i) }}</a>
                     @php $lastShown = $i; @endphp
                   @endif
                 @endfor

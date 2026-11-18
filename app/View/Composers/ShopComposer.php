@@ -268,6 +268,7 @@ final class ShopComposer extends ViewComposer
             'filterAttributes' => $this->resolveAttributes($matchingIds, $selectedAttributes),
             'selectedAttributes' => $selectedAttributes,
             'archiveHeading' => $this->resolveArchiveHeading($searchQuery),
+            'filterBaseUrl' => rs_is_wc() && (is_product_category() || is_tax('product_brand')) ? rs_page_url('shop') : '',
         ];
     }
 
@@ -298,8 +299,12 @@ final class ShopComposer extends ViewComposer
                         'img' => $thumbUrl !== '' ? $thumbUrl : rs_img($imgMeta ?: 'cat-craft.webp'),
                     ];
                 }
-                return $this->categoryTree($out);
+                $existingIds = array_column($out, 'id');
+                foreach ($out as &$item) if ($item['parent'] && !in_array($item['parent'], $existingIds, true)) $item['parent'] = 0;
+                unset($item);
+                return $this->categoryTree($out, $selected);
             }
+            return [];
         }
 
         $counts = [];
@@ -337,6 +342,18 @@ final class ShopComposer extends ViewComposer
                 }
                 return $out;
             }
+            return [];
+        }
+        if ($useWc) {
+            $out = [];
+            foreach ($ids ?? [] as $id) {
+                $slug = (string) get_post_meta($id, '_rs_brand_slug', true);
+                if ($slug === '') continue;
+                if (!isset($out[$slug])) $out[$slug] = ['slug' => $slug, 'title' => (string) get_post_meta($id, '_rs_brand_name', true) ?: $slug, 'count' => 0];
+                $out[$slug]['count']++;
+            }
+            foreach ($selected as $slug) if (!isset($out[$slug])) $out[$slug] = ['slug' => $slug, 'title' => $slug, 'count' => 0];
+            return array_values($out);
         }
 
         $counts = [];
@@ -369,13 +386,13 @@ final class ShopComposer extends ViewComposer
         return array_map('count', $sets);
     }
 
-    private function categoryTree(array $items, int $parent = 0): array
+    private function categoryTree(array $items, array $selected, int $parent = 0): array
     {
         $out = [];
         foreach ($items as $item) {
             if (($item['parent'] ?? 0) !== $parent) continue;
-            $item['children'] = $this->categoryTree($items, $item['id']);
-            $out[] = $item;
+            $item['children'] = $this->categoryTree($items, $selected, $item['id']);
+            if ($item['count'] || $item['children'] || in_array($item['slug'], $selected, true)) $out[] = $item;
         }
         return $out;
     }

@@ -38,6 +38,7 @@ jobs:
           npm install --no-save --no-package-lock jsdom
           node tests/checkout-ui.cjs
           node tests/shop-ui.cjs
+          node tests/admin-home-ui.cjs
       - name: Test with WordPress and WooCommerce
         env:
           HPOS_ENABLED: ${{ matrix.hpos }}
