@@ -398,6 +398,8 @@ $wcProvider = rs_app()->make(App\Providers\WooCommerceServiceProvider::class);
 rs_assert($wcProvider->productConsentText($product->get_id()) === 'Consent sample text', 'Category consent did not apply');
 unset($_POST['rs_product_consent']);
 rs_assert(!$wcProvider->validateProductConsent(true, $product->get_id(), 1), 'Missing consent accepted');
+WC()->cart->empty_cart();
+rs_assert(WC()->cart->add_to_cart($product->get_id()) === false, 'Direct cart addition bypassed consent');
 wc_clear_notices(); $_POST['rs_product_consent'] = 'yes';
 rs_assert($wcProvider->validateProductConsent(true, $product->get_id(), 1), 'Consent rejected');
 $cartData = $wcProvider->storeProductConsent([], $product->get_id());

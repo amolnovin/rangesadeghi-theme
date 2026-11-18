@@ -475,7 +475,14 @@ final class WooCommerceServiceProvider extends ServiceProvider
     public function storeProductConsent(array $data, $productId): array
     {
         $text = $this->productConsentText((int) $productId);
-        if ($text !== '' && ($_POST['rs_product_consent'] ?? '') === 'yes') $data['rs_product_consent'] = $text;
+        if ($text !== '') {
+            // WC_Cart::add_to_cart does not itself invoke the standard validation filter.
+            // Fail closed for programmatic and Store API additions as well.
+            if (($_POST['rs_product_consent'] ?? '') !== 'yes') {
+                throw new \Exception('برای خرید این محصول ابتدا متن تأیید را در صفحه محصول بپذیرید.');
+            }
+            $data['rs_product_consent'] = $text;
+        }
         return $data;
     }
 
