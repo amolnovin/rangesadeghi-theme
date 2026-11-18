@@ -27,6 +27,8 @@ jobs:
           --health-interval=10s --health-timeout=5s --health-retries=12
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: PHP syntax and smoke tests
         run: |
           set -euo pipefail
@@ -56,6 +58,10 @@ jobs:
           wp plugin install woocommerce --version=9.6.2 --activate
           wp option update woocommerce_custom_orders_table_enabled "$HPOS_ENABLED"
           wp eval-file "$GITHUB_WORKSPACE/tests/woocommerce-integration.php"
+          mkdir -p "$RUNNER_TEMP/rs-patch-test/theme" "$RUNNER_TEMP/rs-patch-release"
+          git -C "$GITHUB_WORKSPACE" archive 87172c5ee4a841e1288170f73fd0e430036e4d21 | tar -x -C "$RUNNER_TEMP/rs-patch-test/theme"
+          python3 "$GITHUB_WORKSPACE/tools/make-patch.py" --from 87172c5ee4a841e1288170f73fd0e430036e4d21 --to "$GITHUB_SHA" --min-version 2.2.11 --version 2.2.12 --out-dir "$RUNNER_TEMP/rs-patch-release"
+          RS_PATCH_TEST_DIR="$RUNNER_TEMP/rs-patch-test" RS_PATCH_RELEASE_DIR="$RUNNER_TEMP/rs-patch-release" wp eval-file "$GITHUB_WORKSPACE/tests/patch-release-integration.php"
           FIXTURE="$(wp eval-file "$GITHUB_WORKSPACE/tests/delivery-http-seed.php" | sed -n 's/^RSHTTP://p' | tail -1)"
           test -n "$FIXTURE"
           python3 "$GITHUB_WORKSPACE/tests/delivery-http.py" "$RUNNER_TEMP/wp" "$RUNNER_TEMP/wp-cli.phar" "$FIXTURE"

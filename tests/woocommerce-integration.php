@@ -386,6 +386,8 @@ $cardOrder->delete(true);
 // Search archive should render both products and posts, including empty searches.
 $shopSearch = rs_app()->make(App\View\Composers\ShopComposer::class)->buildShopData(['s' => 'Integration test product']);
 rs_assert($shopSearch['total'] >= 1, 'Product search returned no matching product');
+$footerPage = rs_view('pages.contact', ['dataPage' => 'contact']);
+rs_assert(str_contains($footerPage, 'trustseal.enamad.ir/logo.aspx?id=574425') && !str_contains($footerPage, 'class="enamad-mark"'), 'Official Enamad image endpoint missing');
 $contactPage = rs_view('pages.contact', ['dataPage' => 'contact']);
 rs_assert(str_contains($contactPage, '0x3f8fa2921853846f') && str_contains($contactPage, 'map-canvas'), 'Provided Google map missing from contact page');
 rs_app('options')->update(['general' => ['map_provider' => 'neshan']]);

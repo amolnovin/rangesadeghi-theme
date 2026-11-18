@@ -58,11 +58,25 @@
 
         <aside class="hx-footer-license">
           <h3>مجوزهای سایت</h3>
+          @php
+            // Prefer a site-provided official image. For the existing verification URL,
+            // construct the official logo endpoint only for the trusted Enamad host.
+            $enamadImage = $general['enamad_image'] ?? '';
+            $enamadLink = (string) ($general['enamad_url'] ?? '');
+            if (!$enamadImage && strtolower((string) wp_parse_url($enamadLink, PHP_URL_HOST)) === 'trustseal.enamad.ir') {
+                parse_str((string) wp_parse_url($enamadLink, PHP_URL_QUERY), $enamadQuery);
+                $enamadId = (string) ($enamadQuery['id'] ?? '');
+                $enamadCode = (string) ($enamadQuery['Code'] ?? '');
+                if (ctype_digit($enamadId) && preg_match('/^[A-Za-z0-9]+$/', $enamadCode)) {
+                    $enamadImage = 'https://trustseal.enamad.ir/logo.aspx?id=' . $enamadId . '&Code=' . $enamadCode;
+                }
+            }
+          @endphp
           @if(!empty($general['enamad_code']))
             <div class="enamad">{!! $general['enamad_code'] !!}</div>
-          @elseif(!empty($general['enamad_image']))
+          @elseif(!empty($enamadImage))
             <a class="enamad" href="{{ $general['enamad_url'] ?? '#' }}" target="_blank" rel="noopener" aria-label="نماد اعتماد الکترونیکی">
-              <img src="{{ rs_img($general['enamad_image']) }}" alt="نماد اعتماد الکترونیکی" loading="lazy" style="max-width:110px;max-height:110px;object-fit:contain"><small>نماد اعتماد الکترونیکی</small>
+              <img src="{{ rs_img($enamadImage) }}" alt="نماد اعتماد الکترونیکی" referrerpolicy="origin" loading="lazy" style="max-width:110px;max-height:110px;object-fit:contain"><small>نماد اعتماد الکترونیکی</small>
             </a>
           @endif
           <span class="hx-license-note"><svg><use href="#i-shield"/></svg>پرداخت امن با درگاه بانکی</span>

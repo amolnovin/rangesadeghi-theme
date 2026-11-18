@@ -434,7 +434,7 @@ svg:not(.svg-sprite){width:24px;height:24px;fill:none;stroke:currentColor;stroke
 }
 
 /* Refined mobile navigation */
-@media(max-width:900px){
+@media(max-width:1024px){
  .mobile-menu-drawer{background:#faf8f5;box-shadow:-12px 0 45px #0002;border-radius:20px 0 0 20px;overflow:hidden}
  .mobile-menu-drawer .drawer-heading{height:80px;background:#fff;border-bottom:1px solid #f0ebe5}
  .mobile-drawer-tabs{margin:16px 18px 4px;padding:4px;border:0;border-radius:14px;background:#eee9e3;gap:4px}

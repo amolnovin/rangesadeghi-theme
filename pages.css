@@ -1647,8 +1647,9 @@ a.co-step-btn:hover i,button.co-step-btn:not(:disabled):hover i{transform:transl
 .price-block .now bdi,.sticky-buy .price{direction:ltr;unicode-bidi:isolate;display:inline-block}
 .rs-real-map{background:none;overflow:hidden}.rs-real-map:before{display:none}.rs-real-map iframe{width:100%;height:100%;border:0;display:block}
 .rs-map-unavailable{padding:24px;background:#f7f5f2;border-radius:14px}
-@media(max-width:900px){
+@media(max-width:1024px){
   .shop-sidebar.is-open{position:fixed;z-index:101;top:0;right:0;bottom:0;width:min(390px,90vw);display:flex;flex-direction:column;overflow-y:auto;background:#fff;padding:20px;margin:0;box-shadow:-10px 0 35px #0002}
+  .rs-close-filters.mobile-only{display:block}
   .sticky-buy{display:flex;transform:translateY(150%);opacity:0;pointer-events:none;transition:transform .25s ease,opacity .25s ease}
   .sticky-buy.is-visible{transform:translateY(0);opacity:1;pointer-events:auto}
   .sticky-buy .btn{flex:0 1 190px;margin-inline-start:auto}
