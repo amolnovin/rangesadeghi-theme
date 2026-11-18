@@ -79,6 +79,7 @@
             <label class="checkline" style="margin:14px 0">
               <input type="checkbox" name="subscribe" value="1"> می‌خواهم از تخفیف‌ها و محصولات جدید رنگ صادقی باخبر شوم.
             </label>
+              @if(class_exists('WP_MC_Captcha') && class_exists('WP_MC_Core') && \WP_MC_Core::get('enabled', 1)){!! \WP_MC_Captcha::output() !!}@endif
             <button class="btn btn-primary" type="submit"><svg><use href="#i-send"/></svg>ارسال پیام</button>
             <p class="form-note">اطلاعات شما فقط برای پاسخ به همین درخواست استفاده می‌شود و در اختیار شخص ثالث قرار نمی‌گیرد.</p>
           </form>
@@ -86,10 +87,22 @@
 
         <aside class="contact-side">
           <div class="map-card">
-            <div class="map-canvas" role="img" aria-label="نقشه موقعیت فروشگاه رنگ صادقی در آمل">
-              <span class="map-label">فروشگاه رنگ صادقی</span>
-              <span class="map-pin"><svg><use href="#i-pin"/></svg></span>
-            </div>
+            @php
+              $mapProvider = $general['map_provider'] ?? 'google';
+              $mapSrc = '';
+              if ($mapProvider === 'google') {
+                  $mapSrc = 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d335.7766366520794!2d52.344783708595415!3d36.4830014936584!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3f8fa2921853846f%3A0x45b0470b0e315080!2z2YHYsdmI2LTar9in2Ycg2LHZhtqvINi12KfYr9mC24w!5e1!3m2!1sen!2s!4v1795001727620!5m2!1sen!2s';
+              } elseif ($mapProvider === 'neshan') {
+                  $mapSrc = 'https://neshan.org/maps/iframe/places/425f2c344da1710f338f0684b3b82cd5#c36.483-52.345-19z-0p/36.482940899999996/52.344825650000004';
+              } elseif ($mapProvider === 'coordinates' && is_numeric($general['map_latitude'] ?? '') && is_numeric($general['map_longitude'] ?? '') && abs((float) $general['map_latitude']) <= 90 && abs((float) $general['map_longitude']) <= 180) {
+                  $mapSrc = 'https://maps.google.com/maps?q=' . rawurlencode($general['map_latitude'] . ',' . $general['map_longitude']) . '&z=17&output=embed';
+              }
+            @endphp
+            @if($mapSrc !== '')
+              <div class="map-canvas rs-real-map"><iframe title="نقشه موقعیت فروشگاه" loading="lazy" allowfullscreen referrerpolicy="strict-origin-when-cross-origin" src="{{ $mapSrc }}"></iframe></div>
+            @else
+              <p class="rs-map-unavailable">مختصات نقشه را در تنظیمات قالب وارد کنید.</p>
+            @endif
             <div class="map-foot">
               <span>{{ $addressShortFa }}</span>
               <a class="text-link" href="{{ $general['map_url'] ?? '#' }}" target="_blank" rel="noopener">مسیریابی <svg><use href="#i-chevron-left"/></svg></a>
@@ -109,7 +122,7 @@
             <div class="contact-socials">
               @if(!empty($general['instagram']))<a href="{{ $general['instagram'] }}" target="_blank" rel="noopener" aria-label="اینستاگرام"><svg><use href="#i-instagram"/></svg></a>@endif
               @if(!empty($general['whatsapp']))<a href="{{ $general['whatsapp'] }}" target="_blank" rel="noopener" aria-label="واتساپ"><svg><use href="#i-whatsapp"/></svg></a>@endif
-              @if(!empty($general['telegram']))<a href="{{ $general['telegram'] }}" target="_blank" rel="noopener" aria-label="تلگرام"><svg><use href="#i-send"/></svg></a>@endif
+              @if(!empty($general['telegram']))<a href="{{ $general['telegram'] }}" target="_blank" rel="noopener" aria-label="تلگرام"><svg><use href="#i-telegram"/></svg></a>@endif
               @if(!empty($general['email']))<a href="mailto:{{ $general['email'] }}" aria-label="ایمیل"><svg><use href="#i-mail"/></svg></a>@endif
             </div>
           </div>

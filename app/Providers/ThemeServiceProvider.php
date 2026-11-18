@@ -226,6 +226,7 @@ final class ThemeServiceProvider extends ServiceProvider
     public function ajaxNewsletter(): void
     {
         check_ajax_referer('rs_public_nonce', 'nonce');
+        $this->verifyMathCaptcha('newsletter');
 
         $contact = isset($_POST['contact']) ? sanitize_text_field((string) wp_unslash($_POST['contact'])) : '';
         $cleanPhone = preg_replace('/\D+/', '', Persian::toEn($contact));
@@ -255,12 +256,20 @@ final class ThemeServiceProvider extends ServiceProvider
         ]);
     }
 
+    private function verifyMathCaptcha(string $context): void
+    {
+        if (!class_exists('WP_MC_Captcha') || !class_exists('WP_MC_Core') || !\WP_MC_Core::get('enabled', 1)) return;
+        $result = \WP_MC_Captcha::verify(wp_unslash($_POST['wpmc_answer'] ?? ''), wp_unslash($_POST['wpmc_token'] ?? ''), wp_unslash($_POST['wpmc_website'] ?? ''), 'rangesadeghi-' . $context);
+        if (is_wp_error($result)) wp_send_json_error(['message' => $result->get_error_message()]);
+    }
+
     /**
      * ثبت فرم تماس با ما (ارسال ایمیل به مدیر + ذخیره در پنل مدیریت)
      */
     public function ajaxContactSubmit(): void
     {
         check_ajax_referer('rs_public_nonce', 'nonce');
+        $this->verifyMathCaptcha('contact');
 
         $fullname = sanitize_text_field((string) wp_unslash($_POST['fullname'] ?? ''));
         $mobile = Persian::toEn(sanitize_text_field((string) wp_unslash($_POST['mobile'] ?? '')));
@@ -320,6 +329,11 @@ final class ThemeServiceProvider extends ServiceProvider
         $phone = preg_replace('/\D+/', '', Persian::toEn($identity)) ?? '';
 
         if ($password !== '') {
+            // The plugin's login hook skips validation when both fields are omitted.
+            // Reject that case here without consuming the single-use challenge twice.
+            if (class_exists('WP_MC_Captcha') && class_exists('WP_MC_Core') && \WP_MC_Core::get('enabled', 1) && \WP_MC_Core::get('apply_login') && (empty($_POST['wpmc_token']) || !isset($_POST['wpmc_answer']))) {
+                wp_send_json_error(['message' => 'ابتدا مسئله امنیتی را پاسخ دهید.']);
+            }
             $loginUser = $identity;
             if (preg_match('/^0?9\d{9}$/', $phone)) {
                 $normalizedPhone = '0' . ltrim($phone, '0');
@@ -340,7 +354,8 @@ final class ThemeServiceProvider extends ServiceProvider
             ]);
 
             if (is_wp_error($user)) {
-                wp_send_json_error(['message' => 'نام کاربری/موبایل یا رمز عبور اشتباه است.']);
+                $message = $user->get_error_code() === 'wpmc_captcha_failed' ? $user->get_error_message() : 'نام کاربری/موبایل یا رمز عبور اشتباه است.';
+                wp_send_json_error(['message' => $message]);
             }
 
             wp_send_json_success([

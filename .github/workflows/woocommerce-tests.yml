@@ -27,6 +27,8 @@ jobs:
           --health-interval=10s --health-timeout=5s --health-retries=12
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: PHP syntax and smoke tests
         run: |
           set -euo pipefail
@@ -34,8 +36,11 @@ jobs:
           find . -maxdepth 1 -name '*.php' -print0 | xargs -0 -n 1 php -l
           php tests/smoke.php
           node --check resources/js/theme.js
+          node --check resources/js/admin-panel.js
           npm install --no-save --no-package-lock jsdom
           node tests/checkout-ui.cjs
+          node tests/shop-ui.cjs
+          node tests/admin-home-ui.cjs
       - name: Test with WordPress and WooCommerce
         env:
           HPOS_ENABLED: ${{ matrix.hpos }}
@@ -53,9 +58,17 @@ jobs:
           wp plugin install woocommerce --version=9.6.2 --activate
           wp option update woocommerce_custom_orders_table_enabled "$HPOS_ENABLED"
           wp eval-file "$GITHUB_WORKSPACE/tests/woocommerce-integration.php"
+          mkdir -p "$RUNNER_TEMP/rs-patch-test/theme" "$RUNNER_TEMP/rs-patch-release"
+          git -C "$GITHUB_WORKSPACE" archive 87172c5ee4a841e1288170f73fd0e430036e4d21 | tar -x -C "$RUNNER_TEMP/rs-patch-test/theme"
+          python3 "$GITHUB_WORKSPACE/tools/make-patch.py" --from 87172c5ee4a841e1288170f73fd0e430036e4d21 --to "$GITHUB_SHA" --min-version 2.2.11 --version 2.2.12 --out-dir "$RUNNER_TEMP/rs-patch-release"
+          RS_PATCH_TEST_DIR="$RUNNER_TEMP/rs-patch-test" RS_PATCH_RELEASE_DIR="$RUNNER_TEMP/rs-patch-release" wp eval-file "$GITHUB_WORKSPACE/tests/patch-release-integration.php"
           FIXTURE="$(wp eval-file "$GITHUB_WORKSPACE/tests/delivery-http-seed.php" | sed -n 's/^RSHTTP://p' | tail -1)"
           test -n "$FIXTURE"
           python3 "$GITHUB_WORKSPACE/tests/delivery-http.py" "$RUNNER_TEMP/wp" "$RUNNER_TEMP/wp-cli.phar" "$FIXTURE"
+          wp plugin install "$GITHUB_WORKSPACE/tests/fixtures/wp-math-captcha-1.3.3.zip" --activate
+          CAPTCHA_FIXTURE="$(wp eval-file "$GITHUB_WORKSPACE/tests/captcha-http-seed.php" | sed -n 's/^RSCAPTCHA://p' | tail -1)"
+          test -n "$CAPTCHA_FIXTURE"
+          python3 "$GITHUB_WORKSPACE/tests/captcha-http.py" "$RUNNER_TEMP/wp" "$RUNNER_TEMP/wp-cli.phar" "$CAPTCHA_FIXTURE"
       - name: Report integration errors
         if: failure()
         run: |
@@ -63,8 +76,12 @@ jobs:
             python3 - <<'PYERROR'
           import os
           p = os.path.join(os.environ['RUNNER_TEMP'], 'rs-integration.log')
-          text = open(p, errors='replace').read()[-4500:]
-          print('::error::' + text.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A'))
+          import re
+          text = open(p, errors='replace').read()
+          lines = text.splitlines()
+          important = [line for line in lines if re.search(r'Fatal error|AssertionError|Traceback|TypeError|RuntimeException|Parse error|Error:', line)]
+          summary = '\n'.join(important[-12:]) + '\n' + text[-1000:]
+          print('::error::' + summary.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A'))
           PYERROR
           fi
 

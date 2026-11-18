@@ -383,3 +383,18 @@ body.hx-page[data-page]{background:#f6f4f1}
   .hx-color-grid{grid-template-columns:1fr 1fr}
   .hx-footer-cols{grid-template-columns:1fr}
 }
+
+/* Slider and promotional cards share a single grid row on desktop. */
+@media (min-width: 1025px){
+  .hx-hero{align-items:stretch;grid-template-rows:minmax(340px,auto)}
+  .hx-slider{height:100%;min-width:0}
+  .hx-slider .hero-slide.active{position:absolute}
+  .hx-slider .hero-slide picture,.hx-slider .hero-slide a{display:block;height:100%}
+  .hx-slider .hero-slide img{height:100%;min-height:0}
+  .hx-hero-side{min-height:340px}
+}
+.hx-mobile-search-toggle{width:44px;height:44px;border:0;border-radius:12px;background:#f7f4f1;color:#333;display:grid;place-items:center;cursor:pointer}
+.hx-mobile-search-toggle svg{width:19px;height:19px}
+.mobile-search[hidden]{display:none!important}
+
+@media (max-width:1024px){.hx-hero-side{display:none!important}}

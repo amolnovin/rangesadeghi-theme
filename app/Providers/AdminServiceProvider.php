@@ -52,6 +52,8 @@ final class AdminServiceProvider extends ServiceProvider
             59
         );
 
+        add_submenu_page('rangesadeghi-settings', 'پیام‌های دریافتی', 'پیام‌های دریافتی', 'manage_options', 'rangesadeghi-contact-messages', [$this, 'renderContactMessages']);
+
         $subTabs = [
             'general' => 'تنظیمات عمومی و برند',
             'home' => 'بخش‌های صفحه اصلی',
@@ -73,6 +75,19 @@ final class AdminServiceProvider extends ServiceProvider
                 [$this, 'renderSettingsPage']
             );
         }
+    }
+
+    public function renderContactMessages(): void
+    {
+        if (!current_user_can('manage_options')) wp_die('عدم دسترسی', '', ['response' => 403]);
+        $messages = (array) get_option('rangesadeghi_contact_messages', []);
+        echo '<div class="wrap" dir="rtl"><h1>پیام‌های فرم تماس</h1><p>حداکثر ۳۰۰ پیام اخیر؛ فقط مدیران مجاز به مشاهده هستند.</p><table class="widefat striped"><thead><tr><th>نام</th><th>موبایل</th><th>ایمیل</th><th>موضوع</th><th>پیام</th><th>تاریخ</th></tr></thead><tbody>';
+        foreach ($messages as $message) {
+            echo '<tr>';
+            foreach (['name', 'mobile', 'email', 'subject', 'message', 'date'] as $key) echo '<td>' . nl2br(esc_html((string) ($message[$key] ?? ''))) . '</td>';
+            echo '</tr>';
+        }
+        echo '</tbody></table></div>';
     }
 
     public function enqueueAdminAssets(string $hook): void
@@ -120,7 +135,7 @@ final class AdminServiceProvider extends ServiceProvider
 
         $activeTab = isset($_GET['tab']) ? sanitize_key((string) $_GET['tab']) : 'general';
         $newsletterCount = count((array) get_option('rangesadeghi_newsletter_subscribers', []));
-        $contactMessages = array_slice((array) get_option('rangesadeghi_contact_messages', []), 0, 10);
+        $contactMessages = (array) get_option('rangesadeghi_contact_messages', []);
 
         rs_render('admin.settings', [
             'opts' => $options->all(),

@@ -432,3 +432,15 @@ svg:not(.svg-sprite){width:24px;height:24px;fill:none;stroke:currentColor;stroke
 @media(prefers-reduced-motion:reduce){
   *,*:before,*:after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
 }
+
+/* Refined mobile navigation */
+@media(max-width:1024px){
+ .mobile-menu-drawer{background:#faf8f5;box-shadow:-12px 0 45px #0002;border-radius:20px 0 0 20px;overflow:hidden}
+ .mobile-menu-drawer .drawer-heading{height:80px;background:#fff;border-bottom:1px solid #f0ebe5}
+ .mobile-drawer-tabs{margin:16px 18px 4px;padding:4px;border:0;border-radius:14px;background:#eee9e3;gap:4px}
+ .mobile-drawer-tabs button{border-radius:10px;background:transparent;padding:11px}.mobile-drawer-tabs button.active{background:white;color:var(--accent);box-shadow:0 2px 8px #0001}.mobile-drawer-tabs button.active:after{display:none}
+ .mobile-drawer-nav,.mobile-drawer-categories{padding:14px 18px}.mobile-drawer-nav>a{background:#fff;border:1px solid #f1ece7;border-radius:12px;margin-bottom:8px;padding:13px 15px;transition:transform .2s,color .2s}.mobile-drawer-nav>a:active{transform:scale(.98);color:var(--accent)}
+ .mobile-toolbar{background:rgba(255,255,255,.97);border-radius:18px 18px 0 0;box-shadow:0 -7px 25px #22170d14;backdrop-filter:blur(12px)}
+ .mobile-toolbar>a,.mobile-toolbar>button{border-radius:12px;transition:transform .2s ease,color .2s ease,background .2s ease}.mobile-toolbar>a:active,.mobile-toolbar>button:active{transform:scale(.9);background:#fff0f0}.mobile-toolbar .active svg{transform:translateY(-2px);transition:transform .2s}
+}
+@media(prefers-reduced-motion:reduce){.mobile-toolbar>a,.mobile-toolbar>button,.mobile-drawer-nav>a{transition:none}}

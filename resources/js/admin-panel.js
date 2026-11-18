@@ -57,6 +57,64 @@
     });
   });
 
+  /* ویرایش بصری آرایه‌های صفحه اصلی، بدون حذف کلیدهای تنظیمات موجود */
+  const visualFields = {
+    'home.hero_slides': [['desktop','تصویر دسکتاپ','image'],['mobile','تصویر موبایل','image'],['alt','متن جایگزین'],['link','پیوند']],
+    'home.hero_side_cards': [['image','تصویر','image'],['tag','برچسب'],['tag_style','رنگ برچسب (red یا gold)'],['title','عنوان'],['subtitle','زیرعنوان'],['url','پیوند دلخواه'],['cat_slug','نامک دسته'],['sale_only','فقط تخفیف‌دار','bool']],
+    'home.projects': [['image','تصویر','image'],['title','عنوان'],['subtitle','زیرعنوان'],['url','پیوند دلخواه'],['cat','نامک دسته'],['tall','کارت بلند','bool']]
+  };
+  Object.entries(visualFields).forEach(([key, fields]) => {
+    const source = document.querySelector('[data-opt-json="' + key + '"]');
+    if (!source) return;
+    let items;
+    try { items = JSON.parse(source.value || '[]'); if (!Array.isArray(items)) return; }
+    catch { return; } // فیلد JSON برای اصلاح داده نامعتبر باقی می‌ماند.
+    const editor = document.createElement('div');
+    const list = document.createElement('div');
+    const add = document.createElement('button');
+    add.type = 'button'; add.className = 'button'; add.textContent = 'افزودن کارت';
+    editor.append(list, add);
+    source.before(editor);
+    source.hidden = true;
+    const sync = () => { source.value = JSON.stringify(items); };
+    const render = () => {
+      list.replaceChildren();
+      items.forEach((item, index) => {
+        if (!item || typeof item !== 'object' || Array.isArray(item)) item = items[index] = {};
+        const card = document.createElement('fieldset');
+        card.style.cssText = 'border:1px solid #ddd;padding:12px;margin:12px 0;border-radius:8px';
+        const legend = document.createElement('legend'); legend.textContent = 'کارت ' + (index + 1); card.append(legend);
+        fields.forEach(([field, label, type]) => {
+          const row = document.createElement('div'); row.style.cssText = 'margin:8px 0';
+          const caption = document.createElement('label'); caption.textContent = label + ' '; row.append(caption);
+          const input = document.createElement('input'); input.type = type === 'bool' ? 'checkbox' : 'text';
+          if (type === 'bool') input.checked = !!item[field]; else { input.value = item[field] || ''; input.style.width = '65%'; }
+          input.addEventListener('input', () => { item[field] = type === 'bool' ? input.checked : input.value; sync(); });
+          caption.append(input);
+          if (type === 'image') {
+            const pick = document.createElement('button'); pick.type = 'button'; pick.className = 'button'; pick.textContent = 'انتخاب تصویر';
+            pick.addEventListener('click', () => {
+              if (!window.wp?.media) return notify('کتابخانه رسانه در دسترس نیست.', false);
+              const frame = window.wp.media({title:'انتخاب تصویر', button:{text:'استفاده از تصویر'}, multiple:false});
+              frame.on('select', () => { const image = frame.state().get('selection').first().toJSON(); if (image?.url) { input.value = item[field] = image.url; sync(); } });
+              frame.open();
+            }); row.append(' ', pick);
+          }
+          card.append(row);
+        });
+        [['↑', -1], ['↓', 1]].forEach(([label, delta]) => {
+          const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'button'; btn.textContent = label;
+          btn.disabled = index + delta < 0 || index + delta >= items.length;
+          btn.addEventListener('click', () => { const other = index + delta; [items[index], items[other]] = [items[other], items[index]]; sync(); render(); }); card.append(btn, ' ');
+        });
+        const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'button'; remove.textContent = 'حذف';
+        remove.addEventListener('click', () => { items.splice(index, 1); sync(); render(); }); card.append(remove); list.append(card);
+      });
+    };
+    add.addEventListener('click', () => { items.push({}); sync(); render(); });
+    render();
+  });
+
   /* جمع‌آوری تمام فیلدها در ساختار درختی options */
   function collectOptions() {
     const out = {};

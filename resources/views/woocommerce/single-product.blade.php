@@ -67,12 +67,12 @@
           @endif
 
           <div class="price-block">
-            <span class="now"><bdo id="product-price">{{ rs_price($product['price']) }}</bdo><small>تومان</small></span>
+            <span class="now"><bdi dir="ltr" id="product-price">{{ rs_price($product['price']) }}</bdi><small>تومان</small></span>
             @if(!empty($product['old']) && $product['old'] > $product['price'])
               <span class="was" id="product-old">{{ rs_price($product['old']) }} تومان</span>
             @endif
             @if(($product['discount'] ?? 0) > 0)
-              <span class="off" id="product-off">-{{ rs_fa($product['discount']) }}%</span>
+              <span class="off" id="product-off">{{ rs_fa($product['discount']) }}%</span>
             @endif
             @if($product['in_stock'])
               <span class="stock" id="product-stock"><svg><use href="#i-check"/></svg> موجود در انبار</span>
@@ -98,13 +98,14 @@
             @endforeach
           @endif
 
+          @if(!empty($productConsent))<label class="rs-product-consent"><input type="checkbox" id="rs-product-consent"> <span>{{ $productConsent }}</span></label>@endif
           <div class="buy-row">
             <div class="qty-stepper">
               <button type="button" id="qty-minus" aria-label="کاهش تعداد"><svg><use href="#i-minus"/></svg></button>
               <input id="qty-input" value="۱" data-qty="1" inputmode="numeric" aria-label="تعداد" readonly>
               <button type="button" id="qty-plus" aria-label="افزایش تعداد"><svg><use href="#i-plus"/></svg></button>
             </div>
-            <button class="btn btn-primary" type="button" id="product-add" data-single-add="{{ $product['id'] }}" {{ !$product['in_stock'] ? 'disabled' : '' }}>
+            <button class="btn btn-primary" type="button" id="product-add" data-single-add="{{ $product['id'] }}" {{ !$product['in_stock'] ? 'data-out-of-stock="1"' : '' }} {{ (!$product['in_stock'] || !empty($productConsent)) ? 'disabled' : '' }}>
               <svg><use href="#i-bag"/></svg>{{ $product['in_stock'] ? 'افزودن به سبد خرید' : 'ناموجود' }}
             </button>
             <button class="icon-action {{ $isWished ? 'active' : '' }}" type="button" data-wish="{{ $product['id'] }}" aria-label="افزودن به علاقه‌مندی" aria-pressed="{{ $isWished ? 'true' : 'false' }}">
@@ -236,6 +237,7 @@
                     <label for="rev-comment">متن دیدگاه *</label>
                     <textarea id="rev-comment" name="comment" rows="4" required placeholder="تجربه خرید یا اجرای این محصول را بنویسید…"></textarea>
                   </div>
+                  @if(class_exists('WP_MC_Captcha') && class_exists('WP_MC_Core') && \WP_MC_Core::get('enabled', 1) && \WP_MC_Core::get('apply_comments'))<div class="field full">{!! \WP_MC_Captcha::output() !!}</div>@endif
                   <div><button type="submit" class="btn btn-primary">ثبت دیدگاه</button></div>
                 </form>
               </div>
@@ -282,7 +284,7 @@
   @if(!empty($productCfg['mobile_sticky_buy']))
     <div class="sticky-buy mobile-only">
       <span class="price" id="sticky-price">{{ rs_price($product['price']) }} تومان</span>
-      <button class="btn btn-primary" type="button" id="sticky-add" data-single-add="{{ $product['id'] }}" {{ !$product['in_stock'] ? 'disabled' : '' }}>
+      <button class="btn btn-primary" type="button" id="sticky-add" data-single-add="{{ $product['id'] }}" {{ !$product['in_stock'] ? 'data-out-of-stock="1"' : '' }} {{ (!$product['in_stock'] || !empty($productConsent)) ? 'disabled' : '' }}>
         <svg><use href="#i-bag"/></svg>{{ $product['in_stock'] ? 'افزودن به سبد' : 'ناموجود' }}
       </button>
     </div>

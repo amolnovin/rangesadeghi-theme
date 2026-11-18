@@ -28,7 +28,13 @@ def call(path, form=None, photo=None):
             headers['Content-Type'] = 'application/x-www-form-urlencoded'
             payload = urllib.parse.urlencode(form)
         conn.request('POST', path, payload, headers)
-    res = conn.getresponse(); text = res.read().decode('utf-8'); status = res.status; conn.close(); return status, text
+    res = conn.getresponse(); text = res.read().decode('utf-8'); status = res.status; location = res.getheader('Location'); conn.close()
+    if form is None and status in (301, 302, 303, 307, 308) and location:
+        target = urllib.parse.urlsplit(urllib.parse.urljoin('http://example.test' + path, location))
+        if target.hostname == 'example.test' and target.path != urllib.parse.urlsplit(path).path:
+            return call(target.path + ('?' + target.query if target.query else ''))
+        raise AssertionError(f'Unexpected redirect: {path} => {location}')
+    return status, text
 try:
     for _ in range(100):
         if server.poll() is not None: raise RuntimeError('PHP server exited')
@@ -36,6 +42,21 @@ try:
             s = socket.create_connection(('127.0.0.1', 8765), timeout=.1); s.close(); break
         except OSError: time.sleep(.1)
     else: raise RuntimeError('PHP server did not start')
+    for query, expected in [('/?post_type=product&s=Delivery+feedback', 'shop-grid'), ('/?s=Hello', '<main'), ('/?post_type=product&s=nothing-matches-xyz', 'shop-grid')]:
+        status, html = call(query)
+        assert status == 200 and expected in html, f'Search produced an error or blank page: {query}; HTTP {status}; response: {html[:500]!r}'
+    # The block/Store API must not add a protected product with no consent.
+    conn = http.client.HTTPConnection('127.0.0.1', 8765, timeout=10)
+    conn.request('GET', '/?rest_route=/wc/store/v1/cart', headers={'Host':'example.test'})
+    resp = conn.getresponse(); resp.read(); nonce = resp.getheader('Nonce'); cart_token = resp.getheader('Cart-Token'); status = resp.status; conn.close()
+    assert status == 200 and (nonce or cart_token), f'Store API cart failed: {status}'
+    headers = {'Host':'example.test', 'Content-Type':'application/json'}
+    if nonce: headers['Nonce'] = nonce
+    if cart_token: headers['Cart-Token'] = cart_token
+    conn = http.client.HTTPConnection('127.0.0.1', 8765, timeout=10)
+    conn.request('POST', '/?rest_route=/wc/store/v1/cart/add-item', json.dumps({'id':data['product'], 'quantity':1}), headers)
+    resp = conn.getresponse(); store_body = resp.read().decode(); status = resp.status; conn.close()
+    assert status == 400 and 'rs_product_consent_required' in store_body, f'Store API bypassed consent: HTTP {status}: {store_body[:400]}'
     path = '/?rsd=' + str(data['id']) + '.' + data['token']
     code, body = call('/?rsd=' + str(data['id']) + '.' + '0'*22)
     assert code == 404 and 'delivery-feedback-form' not in body, 'Invalid token exposed a form'

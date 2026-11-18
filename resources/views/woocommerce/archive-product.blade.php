@@ -27,17 +27,14 @@
       </header>
 
       <div class="shop-layout">
-        <aside class="shop-sidebar" id="shop-sidebar" aria-label="فیلتر محصولات">
+        <aside class="shop-sidebar" id="shop-sidebar" aria-label="فیلتر محصولات" data-filter-base="{{ $filterBaseUrl }}">
+          <button type="button" class="rs-close-filters mobile-only" aria-label="بستن فیلترها">بستن فیلترها ✕</button>
           @if(!empty($shopCfg['filter_categories']))
           <div class="filter-card">
             <h3>دسته بندی محصولات <svg><use href="#i-layers"/></svg></h3>
             <div class="filter-list" data-filter-list="cats">
               @foreach($filterCategories as $fc)
-                <label class="filter-option">
-                  <input type="checkbox" name="cat" value="{{ $fc['slug'] }}" {{ in_array($fc['slug'], $selectedCats, true) ? 'checked' : '' }}>
-                  <span>{{ $fc['name'] }}</span>
-                  <b class="count">{{ rs_fa($fc['count']) }}</b>
-                </label>
+                @include('partials.filter-category', ['fc' => $fc, 'selectedCats' => $selectedCats])
               @endforeach
             </div>
           </div>
@@ -57,6 +54,14 @@
             </div>
           </div>
           @endif
+
+          @foreach($filterAttributes as $fa)
+          <div class="filter-card"><h3>{{ $fa['name'] }}</h3><div class="filter-list">
+            @foreach($fa['choices'] as $choice)
+              <label class="filter-option"><input type="checkbox" data-attribute="{{ $fa['taxonomy'] }}" value="{{ $choice['slug'] }}" {{ in_array($choice['slug'], $selectedAttributes[$fa['taxonomy']] ?? [], true) ? 'checked' : '' }}><span>{{ $choice['name'] }}</span><b class="count">{{ rs_fa($choice['count']) }}</b></label>
+            @endforeach
+          </div></div>
+          @endforeach
 
           @if(!empty($shopCfg['filter_price']))
           <div class="filter-card">
@@ -143,21 +148,24 @@
             @endforelse
           </div>
 
-          @if($total_pages > 1)
-            <nav class="pagination" id="shop-pagination" aria-label="صفحه‌بندی محصولات">
-              @if($page > 1)
-                <a href="{{ add_query_arg('paged', $page - 1) }}" data-page="{{ $page - 1 }}" aria-label="صفحه قبل"><svg><use href="#i-chevron-right"/></svg></a>
+          <nav class="pagination" id="shop-pagination" aria-label="صفحه‌بندی محصولات" data-mode="{{ $shopCfg['pagination_mode'] ?? 'numbers' }}">
+            @if($total_pages > 1)
+              @if(($shopCfg['pagination_mode'] ?? 'numbers') !== 'numbers')
+                @if($page < $total_pages)<a class="rs-load-more" href="{{ add_query_arg('paged', $page + 1) }}" data-page="{{ $page + 1 }}">نمایش محصولات بیشتر</a>@endif
+              @else
+                @if($page > 1)<a href="{{ add_query_arg('paged', $page - 1) }}" aria-label="صفحه قبل">‹</a>@endif
+                @php $lastShown = 0; @endphp
+                @for($i = 1; $i <= $total_pages; $i++)
+                  @if($i === 1 || $i === $total_pages || abs($i - $page) <= 2)
+                    @if($lastShown && $i - $lastShown > 1)<span aria-hidden="true">…</span>@endif
+                    <a href="{{ add_query_arg('paged', $i) }}" class="{{ $i === $page ? 'active' : '' }}" @if($i === $page) aria-current="page" @endif>{{ rs_fa($i) }}</a>
+                    @php $lastShown = $i; @endphp
+                  @endif
+                @endfor
+                @if($page < $total_pages)<a href="{{ add_query_arg('paged', $page + 1) }}" aria-label="صفحه بعد">›</a>@endif
               @endif
-              @for($i = 1; $i <= $total_pages; $i++)
-                <a href="{{ add_query_arg('paged', $i) }}" class="{{ $i === $page ? 'active' : '' }}" data-page="{{ $i }}">{{ rs_fa($i) }}</a>
-              @endfor
-              @if($page < $total_pages)
-                <a href="{{ add_query_arg('paged', $page + 1) }}" data-page="{{ $page + 1 }}" aria-label="صفحه بعد"><svg><use href="#i-chevron-left"/></svg></a>
-              @endif
-            </nav>
-          @else
-            <nav class="pagination" id="shop-pagination" aria-label="صفحه‌بندی محصولات"></nav>
-          @endif
+            @endif
+          </nav>
         </div>
       </div>
 
