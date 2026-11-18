@@ -503,3 +503,63 @@ jobs:
           فایل `rangesadeghi-wordpress-2.2.9.zip` نسخه کامل قالب است. فایل‌های `rangesadeghi-patch-2.2.9.zip` و `rangesadeghi-patch-2.2.9.json` پچ ارتقا از نسخه ۲.۲.۸ هستند؛ ZIP پچ فایل نصب پوسته نیست. پیش از نصب پشتیبان تهیه و در محیط آزمایشی درگاه‌ها و افزونه‌های سایت را بررسی کنید.
           NOTES
           gh release create v2.2.9 "$RUNNER_TEMP/release/rangesadeghi-wordpress-2.2.9.zip" "$RUNNER_TEMP/release/rangesadeghi-patch-2.2.9.zip" "$RUNNER_TEMP/release/rangesadeghi-patch-2.2.9.json" --target "$GITHUB_SHA" --title 'رنگ صادقی ۲.۲.۹' --notes-file "$RUNNER_TEMP/notes.md" --prerelease
+
+  publish-order-details-2-2-10:
+    needs: integration
+    if: github.event_name == 'push' && github.ref == 'refs/heads/arena/245aed15-rangesadeghi-theme' && startsWith(github.event.head_commit.message, 'Publish order details release 2.2.10')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Build and verify theme and patch
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/release"
+          git archive --format=zip --prefix=rangesadeghi/ --output="$RUNNER_TEMP/release/rangesadeghi-wordpress-2.2.10.zip" "$GITHUB_SHA" -- \
+            app bootstrap config resources assets woocommerce 404.php archive.php comments.php footer.php \
+            front-page.php functions.php header.php home.php index.php page.php rtl.css screenshot.png \
+            search.php single.php style.css styles.css pages.css home.css template-about.php \
+            template-categories.php template-contact.php template-order-tracking.php template-stores.php \
+            theme.json woocommerce.php WORDPRESS.md
+          python3 tools/make-patch.py --version 2.2.10 --min-version 2.2.9 \
+            --files style.css app/Providers/AssetsServiceProvider.php app/Providers/WooCommerceServiceProvider.php app/View/Composers/CheckoutCartComposer.php app/helpers.php config/defaults.php resources/css/wp-compat.css resources/views/admin/settings.blade.php resources/views/woocommerce/my-account.blade.php resources/views/woocommerce/order-details.blade.php woocommerce/checkout/thankyou.php \
+            --notes 'بهبود جزئیات سفارش، پیگیری و فاکتور' --out-dir "$RUNNER_TEMP/release"
+          python3 - <<'PY'
+          import os, zipfile, json, hashlib, base64, subprocess
+          base = os.path.join(os.environ['RUNNER_TEMP'], 'release')
+          expected = {'style.css', 'app/Providers/AssetsServiceProvider.php', 'app/Providers/WooCommerceServiceProvider.php', 'app/View/Composers/CheckoutCartComposer.php', 'app/helpers.php', 'config/defaults.php', 'resources/css/wp-compat.css', 'resources/views/admin/settings.blade.php', 'resources/views/woocommerce/my-account.blade.php', 'resources/views/woocommerce/order-details.blade.php', 'woocommerce/checkout/thankyou.php'}
+          assert subprocess.check_output(['git', 'rev-parse', 'v2.2.9^{commit}'], text=True).strip() == '3e867b78d467ac3da7f66a45f38a0468fb728827'
+          changed = set(subprocess.check_output(['git', 'diff', '--name-only', 'v2.2.9', os.environ['GITHUB_SHA']], text=True).splitlines())
+          with zipfile.ZipFile(os.path.join(base, 'rangesadeghi-wordpress-2.2.10.zip')) as full, zipfile.ZipFile(os.path.join(base, 'rangesadeghi-patch-2.2.10.zip')) as patch:
+              deployed = {name[len('rangesadeghi/'):] for name in full.namelist() if name.startswith('rangesadeghi/') and not name.endswith('/')}
+              assert changed & deployed == expected, (changed & deployed, expected)
+              assert full.testzip() is None and patch.testzip() is None
+              assert b'Version: 2.2.10' in full.read('rangesadeghi/style.css')
+              manifest = json.loads(patch.read('patch.json'))
+              bundle = json.load(open(os.path.join(base, 'rangesadeghi-patch-2.2.10.json')))
+              assert manifest['min_version'] == '2.2.9' and manifest['target_version'] == '2.2.10'
+              assert set(manifest['files']) == expected
+              for name, meta in manifest['files'].items():
+                  data = patch.read('files/' + name)
+                  assert data == full.read('rangesadeghi/' + name) == subprocess.check_output(['git', 'show', os.environ['GITHUB_SHA'] + ':' + name])
+                  assert hashlib.sha256(data).hexdigest() == meta['sha256']
+                  assert data == base64.b64decode(bundle['files'][name]['content_base64'])
+          PY
+      - name: Publish tested release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/notes.md" <<'NOTES'
+          ## قالب رنگ صادقی ۲.۲.۱۰
+
+          اصلاح جزئیات صفحه تکمیل سفارش و پیوند مشاهده سفارش، حذف پیشوند RS از شماره سفارش حساب، امکان تعیین وضعیت‌های مراحل مرسوله در تنظیمات فروشگاه قالب، جلوگیری از لغو سفارش در حال پردازش و فاکتور قابل چاپ مجزا از صفحه انجام شده است.
+
+          **هشدار کیف پول:** پرداخت کیف پول تکمیل یا به‌صورت امن تأیید نشده است. افزونه آمل کیف پول ۱.۱۲.۲ در منطق برداشت مبتنی بر نشست و هم‌زمانی تراکنش‌ها ریسک دارد و پیش از استفاده عملیاتی نیازمند اصلاح و آزمون است؛ خود افزونه در این انتشار اصلاح یا همراه قالب عرضه نشده است. رابط حساب با هوک افزونه سازگار شده اما با افزونه واقعی در محیط عملیاتی آزمایش نشده است. نصب این پچ مشکلات افزونه را برطرف نمی‌کند.
+
+          فایل `rangesadeghi-wordpress-2.2.10.zip` نسخه کامل قالب است؛ `rangesadeghi-patch-2.2.10.zip` و `rangesadeghi-patch-2.2.10.json` پچ ارتقا از نسخه ۲.۲.۹ هستند. فایل ZIP پچ، فایل نصب پوسته نیست. قبل از نصب پشتیبان تهیه کرده و تغییرات را در محیط آزمایشی بررسی کنید.
+          NOTES
+          gh release create v2.2.10 "$RUNNER_TEMP/release/rangesadeghi-wordpress-2.2.10.zip" "$RUNNER_TEMP/release/rangesadeghi-patch-2.2.10.zip" "$RUNNER_TEMP/release/rangesadeghi-patch-2.2.10.json" --target "$GITHUB_SHA" --title 'رنگ صادقی ۲.۲.۱۰' --notes-file "$RUNNER_TEMP/notes.md" --prerelease
