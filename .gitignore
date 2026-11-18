@@ -17,3 +17,6 @@ node_modules/
 
 # فایل‌های آپلودی موقت
 uploads/
+
+# Generated delivery artifacts
+artifacts/

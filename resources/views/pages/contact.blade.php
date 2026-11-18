@@ -122,7 +122,7 @@
             <div class="contact-socials">
               @if(!empty($general['instagram']))<a href="{{ $general['instagram'] }}" target="_blank" rel="noopener" aria-label="اینستاگرام"><svg><use href="#i-instagram"/></svg></a>@endif
               @if(!empty($general['whatsapp']))<a href="{{ $general['whatsapp'] }}" target="_blank" rel="noopener" aria-label="واتساپ"><svg><use href="#i-whatsapp"/></svg></a>@endif
-              @if(!empty($general['telegram']))<a href="{{ $general['telegram'] }}" target="_blank" rel="noopener" aria-label="تلگرام"><svg><use href="#i-send"/></svg></a>@endif
+              @if(!empty($general['telegram']))<a href="{{ $general['telegram'] }}" target="_blank" rel="noopener" aria-label="تلگرام"><svg><use href="#i-telegram"/></svg></a>@endif
               @if(!empty($general['email']))<a href="mailto:{{ $general['email'] }}" aria-label="ایمیل"><svg><use href="#i-mail"/></svg></a>@endif
             </div>
           </div>

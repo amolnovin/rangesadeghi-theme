@@ -42,7 +42,7 @@ return [
         'work_hours' => 'شنبه تا پنج‌شنبه، ۶:۳۰–۲۰:۳۰',
         'address' => 'مازندران، آمل، خیابان طالب آملی، دریای ۳۰/۱، پلاک ۴۴۴',
         'address_short' => 'آمل، خیابان طالب آملی، نبش دریای ۳۰/۱ — پلاک ۴۴۴',
-        'map_url' => 'https://neshan.org/maps/places/425f2c344da1710f338f0684b3b82cd5',
+        'map_url' => 'https://www.google.com/maps/search/?api=1&query=36.4829409%2C52.34482565',
         'map_provider' => 'google',
         'map_latitude' => '',
         'map_longitude' => '',
