@@ -386,6 +386,12 @@ $cardOrder->delete(true);
 // Search archive should render both products and posts, including empty searches.
 $shopSearch = rs_app()->make(App\View\Composers\ShopComposer::class)->buildShopData(['s' => 'Integration test product']);
 rs_assert($shopSearch['total'] >= 1, 'Product search returned no matching product');
+$contactPage = rs_view('pages.contact', ['dataPage' => 'contact']);
+rs_assert(str_contains($contactPage, '0x3f8fa2921853846f') && str_contains($contactPage, 'map-canvas'), 'Provided Google map missing from contact page');
+rs_app('options')->update(['general' => ['map_provider' => 'neshan']]);
+$neshanPage = rs_view('pages.contact', ['dataPage' => 'contact']);
+rs_assert(str_contains($neshanPage, '425f2c344da1710f338f0684b3b82cd5'), 'Provided Neshan map missing from contact page');
+rs_app('options')->update(['general' => ['map_provider' => 'google']]);
 $shopPage = rs_view('woocommerce.archive-product', ['dataPage' => 'shop']);
 $blogPage = rs_view('blog.index', ['dataPage' => 'blog']);
 rs_assert(str_contains($shopPage, 'shop-grid') && str_contains($blogPage, '<main'), 'Search archive failed to render');
@@ -405,6 +411,21 @@ rs_assert($wcProvider->validateProductConsent(true, $product->get_id(), 1), 'Con
 $cartData = $wcProvider->storeProductConsent([], $product->get_id());
 $line = new WC_Order_Item_Product(); $wcProvider->saveProductConsentToOrder($line, 'key', $cartData, $order);
 rs_assert($line->get_meta('تأیید مشتری') === 'Consent sample text', 'Consent not stored on order line');
+// Exercise real cart and actual WooCommerce order-line creation, not just the callback.
+$realKey = WC()->cart->add_to_cart($product->get_id(), 1);
+rs_assert((bool) $realKey, 'Consented product could not enter cart');
+WC()->cart->calculate_totals();
+$_POST += ['billing_first_name' => 'Buyer', 'billing_last_name' => 'Name', 'billing_email' => 'buyer@example.test', 'billing_phone' => '1234567890', 'billing_country' => 'US', 'billing_state' => 'CA', 'billing_city' => 'Los Angeles', 'billing_address_1' => '123 Real Street', 'payment_method' => 'bacs'];
+$consentId = $checkout->create_order($checkout->get_posted_data());
+rs_assert(!is_wp_error($consentId) && $consentId > 0, 'Consent order could not be created');
+$consentOrder = wc_get_order($consentId);
+$consentItems = array_values($consentOrder->get_items());
+rs_assert(count($consentItems) === 1 && $consentItems[0]->get_meta('تأیید مشتری') === 'Consent sample text', 'Order did not retain actual accepted text');
+$consentOrder->delete(true);
+$opts->update(['product' => ['consent_text' => 'Changed consent']]);
+wc_clear_notices(); $wcProvider->validateCartConsents();
+rs_assert(wc_notice_count('error') > 0, 'Changed consent was accepted without renewal');
+WC()->cart->empty_cart(); wc_clear_notices();
 unset($_POST['rs_product_consent']);
 $opts->update(['product' => ['consent_category_ids' => '', 'consent_text' => '']]);
 wp_delete_term((int) $category['term_id'], 'product_cat');

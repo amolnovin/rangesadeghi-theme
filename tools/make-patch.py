@@ -28,6 +28,8 @@ ROOT = Path(__file__).resolve().parent.parent
 EXCLUDED_PREFIXES = (
     ".git/",
     "tools/",
+    "tests/",
+    ".github/",
     "screenshots/",
     "uploads/",
     "node_modules/",

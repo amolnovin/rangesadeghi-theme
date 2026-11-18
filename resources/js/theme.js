@@ -595,36 +595,41 @@
     $('#qty-minus', wrap)?.addEventListener('click', () => setQty(qty - 1));
     $('#qty-plus', wrap)?.addEventListener('click', () => setQty(qty + 1));
 
-    /* متغیرهای ووکامرس */
+    /* تطبیق همه گزینه‌ها با یک تنوع واقعی، پیش از اجازه خرید */
     let variations = [];
     try { variations = JSON.parse(wrap.dataset.variations || '[]'); } catch { variations = []; }
-    let selectedVarId = variations[0]?.variation_id || 0;
-
+    const groups = $$('[data-wc-attribute]', wrap);
+    const consent = $('#rs-product-consent');
+    let selectedVarId = 0;
+    const chosenAttributes = () => {
+      const chosen = {};
+      groups.forEach(g => { const active = $('.active', g); if (active) chosen[g.dataset.wcAttribute] = active.dataset.attrVal; });
+      return chosen;
+    };
+    const updateVariation = () => {
+      const chosen = chosenAttributes();
+      const match = groups.length && Object.keys(chosen).length === groups.length
+        ? variations.find(v => Object.keys(chosen).every(k => Object.prototype.hasOwnProperty.call(v.attributes, k) && (!v.attributes[k] || v.attributes[k] === chosen[k])))
+        : null;
+      selectedVarId = match?.variation_id || 0;
+      if (match) {
+        const pEl = $('#product-price'); if (pEl) pEl.textContent = match.price_fa;
+        const stEl = $('#sticky-price'); if (stEl) stEl.textContent = match.price_fa + ' تومان';
+        if (match.image && mainImg) mainImg.src = match.image;
+      }
+      $$('[data-single-add]').forEach(btn => {
+        btn.disabled = !!btn.dataset.outOfStock || !!(consent && !consent.checked) || !!(groups.length && (!match || !match.is_in_stock || match.is_purchasable === false));
+      });
+    };
     $$('[data-wc-attribute] [data-attr-val]', wrap).forEach(btn => {
       btn.addEventListener('click', () => {
         const group = btn.closest('[data-wc-attribute]');
         $$('[data-attr-val]', group).forEach(b => b.classList.toggle('active', b === btn));
-        const chosen = {};
-        $$('[data-wc-attribute]', wrap).forEach(g => {
-          const active = $('.active', g);
-          if (active) chosen[g.dataset.wcAttribute] = active.dataset.attrVal;
-        });
-        const match = variations.find(v => Object.entries(chosen).every(([k, val]) => !v.attributes[k] || v.attributes[k] === val));
-        if (match) {
-          selectedVarId = match.variation_id;
-          const pEl = $('#product-price');
-          if (pEl) pEl.textContent = match.price_fa;
-          const stEl = $('#sticky-price');
-          if (stEl) stEl.textContent = match.price_fa + ' تومان';
-          if (match.image && mainImg) mainImg.src = match.image;
-        }
+        updateVariation();
       });
     });
-
-    const consent = $('#rs-product-consent');
-    if (consent) consent.addEventListener('change', () => {
-      $$('[data-single-add]').forEach(btn => { btn.disabled = !consent.checked || !!btn.dataset.outOfStock; });
-    });
+    consent?.addEventListener('change', updateVariation);
+    updateVariation();
     $$('[data-single-add]').forEach(btn => {
       btn.addEventListener('click', () => {
         const chosen = {};
@@ -1298,11 +1303,12 @@
     /* مودال ورود سریع */
     $('#login-form')?.addEventListener('submit', async e => {
       e.preventDefault();
+      const form = e.currentTarget;
       const identity = $('#mobile-number')?.value.trim() || '';
       const password = $('#modal-password')?.value || '';
-      const payload = Object.fromEntries(new FormData(e.currentTarget).entries());
+      const payload = Object.fromEntries(new FormData(form).entries());
       const res = await wpAjax('rs_modal_auth', { ...payload, identity, password });
-      if (password) $('.wpmc-refresh', e.currentTarget)?.click();
+      if (password) $('.wpmc-refresh', form)?.click();
       if (!res.success) {
         showToast(res.data?.message || 'خطا در ورود', 'i-info');
         return;

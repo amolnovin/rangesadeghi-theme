@@ -41,6 +41,7 @@ final class SingleProductComposer extends ViewComposer
                             'price_fa' => rs_price(Persian::toToman($var['display_price'] ?? 0)),
                             'regular' => Persian::toToman($var['display_regular_price'] ?? 0),
                             'is_in_stock' => (bool) ($var['is_in_stock'] ?? true),
+                            'is_purchasable' => (bool) ($var['is_purchasable'] ?? true),
                             'image' => $var['image']['src'] ?? $vm['image'],
                             'sku' => $var['sku'] ?? $vm['sku'],
                         ];

@@ -82,7 +82,7 @@ final class FrontPageComposer extends ViewComposer
                     if (is_wp_error($link)) continue;
                     $thumb = (int) get_term_meta($id, 'thumbnail_id', true);
                     $image = $thumb ? wp_get_attachment_image_url($thumb, 'medium') : false;
-                    $selected[] = ['name' => $term->name, 'url' => (string) $link, 'img' => $image ?: rs_img('cat-building.webp'), 'count_fa' => rs_fa((int) $term->count) . ' کالا'];
+                    $selected[] = ['name' => $term->name, 'url' => (string) $link, 'img' => $image ?: rs_img((string) get_term_meta($id, '_rs_cat_image', true) ?: 'cat-building.webp'), 'count_fa' => rs_fa((int) $term->count) . ' کالا'];
                 }
                 return $selected;
             }

@@ -329,6 +329,11 @@ final class ThemeServiceProvider extends ServiceProvider
         $phone = preg_replace('/\D+/', '', Persian::toEn($identity)) ?? '';
 
         if ($password !== '') {
+            // The plugin's login hook skips validation when both fields are omitted.
+            // Reject that case here without consuming the single-use challenge twice.
+            if (class_exists('WP_MC_Captcha') && class_exists('WP_MC_Core') && \WP_MC_Core::get('enabled', 1) && \WP_MC_Core::get('apply_login') && (empty($_POST['wpmc_token']) || !isset($_POST['wpmc_answer']))) {
+                wp_send_json_error(['message' => 'ابتدا مسئله امنیتی را پاسخ دهید.']);
+            }
             $loginUser = $identity;
             if (preg_match('/^0?9\d{9}$/', $phone)) {
                 $normalizedPhone = '0' . ltrim($phone, '0');
@@ -349,7 +354,8 @@ final class ThemeServiceProvider extends ServiceProvider
             ]);
 
             if (is_wp_error($user)) {
-                wp_send_json_error(['message' => 'نام کاربری/موبایل یا رمز عبور اشتباه است.']);
+                $message = $user->get_error_code() === 'wpmc_captcha_failed' ? $user->get_error_message() : 'نام کاربری/موبایل یا رمز عبور اشتباه است.';
+                wp_send_json_error(['message' => $message]);
             }
 
             wp_send_json_success([

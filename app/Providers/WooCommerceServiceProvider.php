@@ -479,7 +479,11 @@ final class WooCommerceServiceProvider extends ServiceProvider
             // WC_Cart::add_to_cart does not itself invoke the standard validation filter.
             // Fail closed for programmatic and Store API additions as well.
             if (($_POST['rs_product_consent'] ?? '') !== 'yes') {
-                throw new \Exception('برای خرید این محصول ابتدا متن تأیید را در صفحه محصول بپذیرید.');
+                $message = 'برای خرید این محصول ابتدا متن تأیید را در صفحه محصول بپذیرید.';
+                if (defined('REST_REQUEST') && REST_REQUEST && class_exists(\Automattic\WooCommerce\StoreApi\Exceptions\RouteException::class)) {
+                    throw new \Automattic\WooCommerce\StoreApi\Exceptions\RouteException('rs_product_consent_required', $message, 400);
+                }
+                throw new \Exception($message);
             }
             $data['rs_product_consent'] = $text;
         }

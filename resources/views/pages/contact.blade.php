@@ -87,10 +87,21 @@
 
         <aside class="contact-side">
           <div class="map-card">
-            @if(is_numeric($general['map_latitude'] ?? '') && is_numeric($general['map_longitude'] ?? '') && abs((float) $general['map_latitude']) <= 90 && abs((float) $general['map_longitude']) <= 180)
-              <div class="map-canvas rs-real-map"><iframe title="نقشه موقعیت فروشگاه" loading="lazy" referrerpolicy="no-referrer" src="{{ 'https://maps.google.com/maps?q=' . rawurlencode($general['map_latitude'] . ',' . $general['map_longitude']) . '&z=17&output=embed' }}"></iframe></div>
+            @php
+              $mapProvider = $general['map_provider'] ?? 'google';
+              $mapSrc = '';
+              if ($mapProvider === 'google') {
+                  $mapSrc = 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d335.7766366520794!2d52.344783708595415!3d36.4830014936584!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3f8fa2921853846f%3A0x45b0470b0e315080!2z2YHYsdmI2LTar9in2Ycg2LHZhtqvINi12KfYr9mC24w!5e1!3m2!1sen!2s!4v1795001727620!5m2!1sen!2s';
+              } elseif ($mapProvider === 'neshan') {
+                  $mapSrc = 'https://neshan.org/maps/iframe/places/425f2c344da1710f338f0684b3b82cd5#c36.483-52.345-19z-0p/36.482940899999996/52.344825650000004';
+              } elseif ($mapProvider === 'coordinates' && is_numeric($general['map_latitude'] ?? '') && is_numeric($general['map_longitude'] ?? '') && abs((float) $general['map_latitude']) <= 90 && abs((float) $general['map_longitude']) <= 180) {
+                  $mapSrc = 'https://maps.google.com/maps?q=' . rawurlencode($general['map_latitude'] . ',' . $general['map_longitude']) . '&z=17&output=embed';
+              }
+            @endphp
+            @if($mapSrc !== '')
+              <div class="map-canvas rs-real-map"><iframe title="نقشه موقعیت فروشگاه" loading="lazy" allowfullscreen referrerpolicy="strict-origin-when-cross-origin" src="{{ $mapSrc }}"></iframe></div>
             @else
-              <p class="rs-map-unavailable">برای مشاهده موقعیت دقیق، از پیوند مسیریابی استفاده کنید.</p>
+              <p class="rs-map-unavailable">مختصات نقشه را در تنظیمات قالب وارد کنید.</p>
             @endif
             <div class="map-foot">
               <span>{{ $addressShortFa }}</span>
