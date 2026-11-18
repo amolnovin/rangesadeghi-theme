@@ -411,6 +411,11 @@ rs_assert($sent === true && str_contains($GLOBALS['rs_test_sms']['message'], 'rs
 $feedbackOrder = wc_get_order($feedbackOrder->get_id());
 $token = $feedbackOrder->get_meta('_rs_feedback_token');
 rs_assert(is_string($token) && strlen($token) === 32, 'Order-specific secret missing');
+rs_assert($delivery->validToken($feedbackOrder, $token) && !$delivery->validToken($feedbackOrder, str_repeat('0', 32)) && !$delivery->validToken($feedbackOrder, ''), 'Order-specific token validation failed');
+$options->update(['delivery_feedback' => ['mode' => 'pattern', 'pattern' => 'test-pattern']]);
+rs_assert($delivery->send($feedbackOrder) === true && $GLOBALS['rs_test_sms']['type'] === 'pattern' && str_contains($GLOBALS['rs_test_sms']['args']['link'], 'rs_delivery='), 'Pattern SMS parameters incorrect');
+$options->update(['delivery_feedback' => ['mode' => 'text']]);
+
 $invalid = $delivery->saveResponse($feedbackOrder, ['received' => 'no', 'reason' => 'unknown']);
 rs_assert(is_wp_error($invalid), 'Missing follow-up answer accepted');
 $no = $delivery->saveResponse($feedbackOrder, ['received' => 'no', 'reason' => 'unknown', 'contacted' => 'no', 'no_detail' => 'No update']);
@@ -431,6 +436,13 @@ $page = rs_view('woocommerce.order-details', ['dataPage' => 'order']);
 rs_assert(str_contains($page, '--rs-progress:100%'), 'Confirmed delivery not reflected in tracking');
 wp_delete_comment((int) $review->comment_ID, true);
 $feedbackOrder->delete(true);
+// A delivered but unpaid order must not become paid merely due to delivery confirmation.
+$unpaid = wc_create_order(['customer_id' => $user->ID]); $unpaid->add_product($product, 1); $unpaid->calculate_totals(); $unpaid->save();
+$unpaid->update_status('on-hold'); $unpaid->update_status('test-shipped');
+$unpaidResult = $delivery->saveResponse($unpaid, ['received' => 'yes', 'delivery_datetime' => wp_date('Y-m-d\TH:i', time() - HOUR_IN_SECONDS), 'pack_rating' => 3, 'product_rating' => 3, 'recommend' => 'no']);
+$unpaid = wc_get_order($unpaid->get_id());
+rs_assert($unpaidResult === 'yes' && $unpaid->has_status('rs-delivered') && !$unpaid->is_paid(), 'Delivery confirmation must not mark an unpaid order as paid');
+$unpaid->delete(true);
 $product->delete(true);
 unset($_GET['order_id']);
 echo "Delivery feedback integration passed.\n";

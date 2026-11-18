@@ -19,7 +19,9 @@ final class DeliveryFeedbackServiceProvider extends ServiceProvider
     {
         add_action('init', [$this, 'registerStatus']);
         add_filter('wc_order_statuses', [$this, 'orderStatuses']);
-        add_filter('woocommerce_order_is_paid_statuses', static function ($statuses) { $statuses[] = self::STATUS; return array_unique($statuses); });
+        add_filter('woocommerce_order_is_paid', static function ($paid, $order) {
+            return $order->has_status(self::STATUS) ? ((bool) $order->get_date_paid() || $order->get_meta('_rs_feedback_was_paid') === 'yes') : $paid;
+        }, 10, 2);
         add_action('init', [$this, 'registerSmsIntegration'], 30);
         add_action('woocommerce_order_status_changed', [$this, 'statusChanged'], 10, 4);
         add_action(self::CRON, [$this, 'scheduledReminder']);
@@ -60,6 +62,8 @@ final class DeliveryFeedbackServiceProvider extends ServiceProvider
         if (!$order instanceof WC_Order) return;
         wp_clear_scheduled_hook(self::CRON, [(int) $id]);
         if ($to === $this->shippingStatus() && $to !== '' && rs_option('delivery_feedback.enabled', false)) {
+            $wasPaid = in_array($from, wc_get_is_paid_statuses(), true) || (bool) $order->get_date_paid();
+            $order->update_meta_data('_rs_feedback_was_paid', $wasPaid ? 'yes' : 'no');
             $order->delete_meta_data('_rs_feedback_resolved');
             $order->delete_meta_data('_rs_feedback_token');
             $order->delete_meta_data('_rs_feedback_no_response');
@@ -83,6 +87,12 @@ final class DeliveryFeedbackServiceProvider extends ServiceProvider
             $order->save();
         }
         return add_query_arg(['rs_delivery' => $order->get_id(), 't' => $token], home_url('/'));
+    }
+
+    public function validToken(WC_Order $order, string $token): bool
+    {
+        $stored = (string) $order->get_meta('_rs_feedback_token');
+        return strlen($token) === 32 && $stored !== '' && hash_equals($stored, $token);
     }
 
     public function send(WC_Order $order): bool|WP_Error
@@ -127,6 +137,9 @@ final class DeliveryFeedbackServiceProvider extends ServiceProvider
         $order = wc_get_order((int) $id);
         if (!$order || !rs_option('delivery_feedback.enabled', false) || !$this->eligible($order)) return;
         $result = $this->send($order);
+        $order = wc_get_order((int) $id);
+        if (!$order || !$this->eligible($order) || !rs_option('delivery_feedback.enabled', false)) return;
+        wp_clear_scheduled_hook(self::CRON, [(int) $id]);
         if (is_wp_error($result)) {
             $order->add_order_note('ارسال پیامک بازخورد ناموفق بود: ' . $result->get_error_message());
             wp_schedule_single_event(time() + DAY_IN_SECONDS, self::CRON, [(int) $id]);
@@ -167,8 +180,7 @@ final class DeliveryFeedbackServiceProvider extends ServiceProvider
         $id = absint($_GET['rs_delivery']);
         $token = sanitize_text_field((string) wp_unslash($_GET['t'] ?? ''));
         $order = rs_is_wc() ? wc_get_order($id) : false;
-        $stored = $order ? (string) $order->get_meta('_rs_feedback_token') : '';
-        $valid = $order && strlen($token) === 32 && $stored !== '' && hash_equals($stored, $token);
+        $valid = $order && $this->validToken($order, $token);
         $message = '';
         $success = false;
         if (!$valid) {
@@ -246,6 +258,7 @@ final class DeliveryFeedbackServiceProvider extends ServiceProvider
                 update_comment_meta($commentId, '_rs_recommend', $recommend);
                 update_comment_meta($commentId, '_rs_feedback_images', $photos);
             }
+            if ($order->is_paid() || $order->get_date_paid()) $order->update_meta_data('_rs_feedback_was_paid', 'yes');
             $order->update_meta_data('_rs_feedback_response', ['delivered_at' => $date, 'pack_rating' => $pack, 'product_rating' => $productRating, 'recommend' => $recommend, 'comment_id' => (int) $commentId, 'images' => $photos, 'at' => time()]);
             $order->update_meta_data('_rs_feedback_resolved', 'yes');
             $order->delete_meta_data('_rs_feedback_no_response');

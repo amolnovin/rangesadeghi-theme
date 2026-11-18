@@ -269,7 +269,7 @@
         </div>
         <div class="rs-card">
           <h2>بازخورد تحویل و یادآوری پیامکی</h2>
-          <p class="rs-muted">ابتدا وضعیت «ارسال» را در همین تب انتخاب و تنظیمات را ذخیره کنید. سپس اتصال «بازخورد تحویل رنگ صادقی» را در IPPanel Core فعال کنید. فعال‌سازی خودکار به صورت پیش‌فرض خاموش است.</p>
+          <p class="rs-muted">ابتدا وضعیت «ارسال» را در همین تب انتخاب و تنظیمات را ذخیره کنید؛ وضعیت تکمیل‌شده، لغوشده، مسترد، ناموفق و تحویل‌شده برای ارسال پیام استفاده نمی‌شوند. سپس اتصال «بازخورد تحویل رنگ صادقی» را در IPPanel Core فعال کنید. فعال‌سازی خودکار به صورت پیش‌فرض خاموش است.</p>
           <div class="rs-toggles"><label class="rs-switch"><input type="checkbox" data-opt="delivery_feedback.enabled" {{ !empty($opts['delivery_feedback']['enabled']) ? 'checked' : '' }}><span>ارسال خودکار ۷۲ ساعت بعد از ورود سفارش به وضعیت ارسال و یادآوری هر ۴ روز پس از پاسخ خیر</span></label></div>
           <div class="rs-grid-2">
             <div class="rs-field"><label>روش ارسال پیامک</label><select data-opt="delivery_feedback.mode"><option value="text" {{ ($opts['delivery_feedback']['mode'] ?? '') === 'text' ? 'selected' : '' }}>متن دستی</option><option value="pattern" {{ ($opts['delivery_feedback']['mode'] ?? '') === 'pattern' ? 'selected' : '' }}>پترن</option></select></div>
