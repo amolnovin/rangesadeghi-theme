@@ -174,11 +174,11 @@ final class ShopComposer extends ViewComposer
             // فالبک کاتالوگ دمو در صورت خالی بودن اولیه فروشگاه
             $catSlugToName = [];
             foreach (DemoCatalog::categories() as $c) {
-                $catSlugToName[$c['slug']] = $c['name'];
+                $catSlugToName[$c['slug']] = $c['title'];
             }
             $wantedCatNames = array_values(array_filter(array_map(static fn(string $s): string => $catSlugToName[$s] ?? $s, $selectedCats)));
 
-            $filtered = array_values(array_filter(DemoCatalog::products(), static function (array $item) use ($searchQuery, $wantedCatNames, $selectedBrands, $minPrice, $maxPrice, $onlySale, $onlyStock): bool {
+            $filtered = array_values(array_filter(DemoCatalog::products(), static function (array $item) use ($searchQuery, $selectedCats, $selectedBrands, $minPrice, $maxPrice, $onlySale, $onlyStock): bool {
                 if ($searchQuery !== '') {
                     $q = Persian::normalize($searchQuery);
                     $hay = Persian::normalize($item['title'] . ' ' . $item['cat'] . ' ' . $item['short']);
@@ -186,7 +186,7 @@ final class ShopComposer extends ViewComposer
                         return false;
                     }
                 }
-                if ($wantedCatNames !== [] && !in_array($item['cat'], $wantedCatNames, true)) {
+                if ($selectedCats !== [] && !array_intersect($selectedCats, (array) ($item['cats'] ?? []))) {
                     return false;
                 }
                 if ($selectedBrands !== [] && !in_array($item['brand'], $selectedBrands, true)) {
@@ -280,16 +280,16 @@ final class ShopComposer extends ViewComposer
 
         $counts = [];
         foreach (DemoCatalog::products() as $p) {
-            $counts[$p['cat']] = ($counts[$p['cat']] ?? 0) + 1;
+            foreach ((array) ($p['cats'] ?? []) as $slug) $counts[$slug] = ($counts[$slug] ?? 0) + 1;
         }
 
         $fallback = [];
         foreach (DemoCatalog::categories() as $c) {
             $fallback[] = [
                 'slug' => $c['slug'],
-                'name' => $c['name'],
-                'count' => $counts[$c['name']] ?? 0,
-                'img' => rs_img($c['img']),
+                'name' => $c['title'],
+                'count' => $counts[$c['slug']] ?? 0,
+                'img' => rs_img($c['image']),
             ];
         }
         return $fallback;

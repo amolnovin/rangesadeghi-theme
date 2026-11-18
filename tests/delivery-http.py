@@ -36,6 +36,9 @@ try:
             s = socket.create_connection(('127.0.0.1', 8765), timeout=.1); s.close(); break
         except OSError: time.sleep(.1)
     else: raise RuntimeError('PHP server did not start')
+    for query, expected in [('/?post_type=product&s=Delivery+feedback', 'shop-grid'), ('/?s=Hello', '<main'), ('/?post_type=product&s=nothing-matches-xyz', 'shop-grid')]:
+        status, html = call(query)
+        assert status == 200 and expected in html, 'Search produced an error or blank page: ' + query
     path = '/?rsd=' + str(data['id']) + '.' + data['token']
     code, body = call('/?rsd=' + str(data['id']) + '.' + '0'*22)
     assert code == 404 and 'delivery-feedback-form' not in body, 'Invalid token exposed a form'
