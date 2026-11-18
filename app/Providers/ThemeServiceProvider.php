@@ -22,6 +22,7 @@ final class ThemeServiceProvider extends ServiceProvider
         $ajaxActions = [
             'rs_live_search' => [$this, 'ajaxLiveSearch'],
             'rs_newsletter_subscribe' => [$this, 'ajaxNewsletter'],
+            'rs_home_newsletter_subscribe' => [$this, 'ajaxHomeNewsletter'],
             'rs_contact_submit' => [$this, 'ajaxContactSubmit'],
             'rs_modal_auth' => [$this, 'ajaxModalAuth'],
         ];
@@ -225,8 +226,22 @@ final class ThemeServiceProvider extends ServiceProvider
      */
     public function ajaxNewsletter(): void
     {
+        $this->submitNewsletter(true);
+    }
+
+    public function ajaxHomeNewsletter(): void
+    {
+        $this->submitNewsletter(false);
+    }
+
+    private function submitNewsletter(bool $requireCaptcha): void
+    {
         check_ajax_referer('rs_public_nonce', 'nonce');
-        $this->verifyMathCaptcha('newsletter');
+        if ($requireCaptcha) {
+            $this->verifyMathCaptcha('newsletter');
+        } elseif (!empty($_POST['newsletter_website'])) {
+            wp_send_json_error(['message' => 'ارسال فرم امکان‌پذیر نیست.']);
+        }
 
         $contact = isset($_POST['contact']) ? sanitize_text_field((string) wp_unslash($_POST['contact'])) : '';
         $cleanPhone = preg_replace('/\D+/', '', Persian::toEn($contact));
@@ -235,6 +250,14 @@ final class ThemeServiceProvider extends ServiceProvider
 
         if (!$isEmail && !$isPhone) {
             wp_send_json_error(['message' => 'لطفاً یک ایمیل یا شماره موبایل معتبر وارد کنید.']);
+        }
+
+        // The captcha-free form has a bounded per-address submission rate.
+        if (!$requireCaptcha && !empty($_SERVER['REMOTE_ADDR'])) {
+            $key = 'rs_news_' . substr(wp_hash((string) $_SERVER['REMOTE_ADDR']), 0, 32);
+            $count = (int) get_transient($key);
+            if ($count >= 10) wp_send_json_error(['message' => 'تعداد درخواست‌ها زیاد است؛ لطفاً بعداً دوباره تلاش کنید.']);
+            set_transient($key, $count + 1, 15 * MINUTE_IN_SECONDS);
         }
 
         $subscribers = get_option('rangesadeghi_newsletter_subscribers', []);

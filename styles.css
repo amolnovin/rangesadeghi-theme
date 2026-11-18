@@ -113,7 +113,7 @@ svg:not(.svg-sprite){width:24px;height:24px;fill:none;stroke:currentColor;stroke
 .mobile-search .search-form button{width:40px}
 
 /* Hero */
-.hero-slider{height:400px;margin-top:40px;position:relative;overflow:hidden;background:#b9b0a7}
+.hero-slider{height:400px;position:relative;overflow:hidden;background:#b9b0a7}
 .hero-slide{position:absolute;inset:0;opacity:0;visibility:hidden;transition:opacity .7s ease,visibility .7s}
 .hero-slide.active{opacity:1;visibility:visible;z-index:1}
 .hero-slide picture,.hero-slide img{display:block;width:100%;height:100%}
@@ -273,15 +273,13 @@ svg:not(.svg-sprite){width:24px;height:24px;fill:none;stroke:currentColor;stroke
 .mobile-drawer-tabs button.active:after{content:"";position:absolute;bottom:0;right:20%;left:20%;height:2px;background:var(--red)}
 .mobile-drawer-nav,.mobile-drawer-categories{padding:12px 20px;overflow-y:auto}
 .mobile-drawer-nav>a{display:block;padding:13px 4px;border-bottom:1px solid #f0f0f0;font-weight:500}
-.mobile-drawer-categories{display:none}
-.mobile-menu-drawer.show-categories .mobile-drawer-nav{display:none}
-.mobile-menu-drawer.show-categories .mobile-drawer-categories{display:block}
+.mobile-drawer-nav[hidden],.mobile-drawer-categories[hidden]{display:none!important}
 .mobile-drawer-categories details{border-bottom:1px solid #eee;padding:5px 0}
 .mobile-drawer-categories summary{cursor:pointer;padding:10px 2px;font-weight:600;display:flex;align-items:center;justify-content:space-between;list-style:none}
 .mobile-drawer-categories summary::-webkit-details-marker{display:none}
 .mobile-drawer-categories summary svg{width:17px!important;height:17px!important;transition:transform .2s}
-.mobile-drawer-categories details[open] summary svg{transform:rotate(180deg)}
-.mobile-drawer-categories details a{display:block;padding:8px 14px;color:#666;font-size:13px}
+.mobile-drawer-categories details[open]>summary svg{transform:rotate(180deg)}
+.mobile-drawer-categories a{display:block;padding:10px 14px;color:#555;font-size:13px}.mobile-category-children{padding-inline-start:12px;border-inline-start:1px solid #eee}.mobile-categories-empty{color:#777;padding:12px}
 .cart-items{padding:15px 20px;overflow-y:auto;flex:1}
 .cart-empty{text-align:center;padding:65px 15px;color:#888}
 .cart-empty svg{width:55px!important;height:55px!important;margin-bottom:15px;color:#bbb}

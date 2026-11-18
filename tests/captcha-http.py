@@ -25,14 +25,17 @@ try:
     assert not request('rs_contact_submit', {**contact, **wrong})['success'], 'Contact accepted wrong answer'
     assert request('rs_contact_submit', {**contact, **captcha(data['contact'])})['success'], 'Contact rejected valid answer'
     assert not request('rs_contact_submit', {**contact, **captcha(data['contact'])})['success'], 'Contact accepted reused challenge'
+    assert not request('rs_home_newsletter_subscribe', {'contact':'invalid'})['success'], 'Home newsletter accepted invalid contact'
+    assert not request('rs_home_newsletter_subscribe', {'contact':'bot@example.test', 'newsletter_website':'spam'})['success'], 'Home newsletter accepted honeypot'
+    assert request('rs_home_newsletter_subscribe', {'contact':'home@example.test'})['success'], 'Home newsletter without captcha failed'
     newsletter = {'contact':'captcha@example.test'}
     assert not request('rs_newsletter_subscribe', newsletter)['success'], 'Newsletter accepted missing captcha'
     assert request('rs_newsletter_subscribe', {**newsletter, **captcha(data['newsletter'])})['success'], 'Newsletter rejected valid answer'
     login = {'identity':'admin', 'password':'test-password'}
     assert not request('rs_modal_auth', login)['success'], 'Modal login accepted missing captcha'
     assert request('rs_modal_auth', {**login, **captcha(data['login'])})['success'], 'Modal login rejected valid answer'
-    result = subprocess.check_output(['php', cli, 'eval', "echo json_encode([count(get_option('rangesadeghi_contact_messages', [])), isset(get_option('rangesadeghi_newsletter_subscribers', [])['captcha@example.test'])]);", '--path='+root], text=True)
-    counts = json.loads(result[result.find('['):]); assert counts[0] == 1 and counts[1], f'Form submissions not saved: {counts}'
+    result = subprocess.check_output(['php', cli, 'eval', "echo json_encode([count(get_option('rangesadeghi_contact_messages', [])), isset(get_option('rangesadeghi_newsletter_subscribers', [])['captcha@example.test']), isset(get_option('rangesadeghi_newsletter_subscribers', [])['home@example.test'])]);", '--path='+root], text=True)
+    counts = json.loads(result[result.find('['):]); assert counts[0] == 1 and counts[1] and counts[2], f'Form submissions not saved: {counts}'
     print('Real WP Math Captcha contact, newsletter, replay and login HTTP checks passed.')
 finally:
     server.terminate()

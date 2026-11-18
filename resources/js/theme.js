@@ -141,7 +141,7 @@
     $$('[data-drawer-tab]').forEach(tabBtn => {
       tabBtn.addEventListener('click', () => {
         const isCats = tabBtn.dataset.drawerTab === 'cats';
-        $$('[data-drawer-tab]').forEach(b => b.classList.toggle('active', b === tabBtn));
+        $$('[data-drawer-tab]').forEach(b => { b.classList.toggle('active', b === tabBtn); b.setAttribute('aria-pressed', String(b === tabBtn)); });
         const navEl = $('#mobile-drawer-nav');
         const catsEl = $('#mobile-drawer-categories');
         if (navEl) navEl.hidden = isCats;
@@ -618,6 +618,12 @@
         ? variations.find(v => Object.keys(chosen).every(k => Object.prototype.hasOwnProperty.call(v.attributes, k) && (!v.attributes[k] || v.attributes[k] === chosen[k])))
         : null;
       selectedVarId = match?.variation_id || 0;
+      const stock = $('#product-stock', wrap);
+      if (stock && groups.length) {
+        const available = !!(match && match.is_in_stock && match.is_purchasable !== false);
+        stock.textContent = available ? (wrap.dataset.needsPreparation === '1' ? 'نیازمند آماده‌سازی' : 'موجود در انبار') : 'ناموجود';
+        stock.classList.toggle('is-out', !available);
+      }
       if (match) {
         const pEl = $('#product-price'); if (pEl) pEl.textContent = match.price_fa;
         const stEl = $('#sticky-price'); if (stEl) stEl.textContent = match.price_fa + ' تومان';
@@ -1289,7 +1295,8 @@
     /* خبرنامه */
     $$('[data-newsletter-form]').forEach(form => form.addEventListener('submit', async e => {
       e.preventDefault();
-      const res = await wpAjax('rs_newsletter_subscribe', Object.fromEntries(new FormData(form).entries()));
+      const action = form.dataset.newsletterAction === 'rs_home_newsletter_subscribe' ? 'rs_home_newsletter_subscribe' : 'rs_newsletter_subscribe';
+      const res = await wpAjax(action, Object.fromEntries(new FormData(form).entries()));
       showToast(res.data?.message || '', res.success ? 'i-check' : 'i-info');
       if (res.success) form.reset();
       $('.wpmc-refresh', form)?.click();
