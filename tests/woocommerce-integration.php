@@ -407,13 +407,14 @@ $feedbackOrder->update_status('test-shipped');
 $scheduled = wp_next_scheduled(App\Providers\DeliveryFeedbackServiceProvider::CRON, [$feedbackOrder->get_id()]);
 rs_assert($scheduled >= time() + 72 * HOUR_IN_SECONDS - 5, '72-hour feedback reminder was not scheduled');
 $sent = $delivery->send($feedbackOrder);
-rs_assert($sent === true && str_contains($GLOBALS['rs_test_sms']['message'], 'rs_delivery=') && str_contains($GLOBALS['rs_test_sms']['message'], 't='), 'SMS core text integration or secure link missing');
+rs_assert($sent === true && str_contains($GLOBALS['rs_test_sms']['message'], 'rsd='), 'SMS core text integration or secure link missing');
 $feedbackOrder = wc_get_order($feedbackOrder->get_id());
 $token = $feedbackOrder->get_meta('_rs_feedback_token');
-rs_assert(is_string($token) && strlen($token) === 32, 'Order-specific secret missing');
-rs_assert($delivery->validToken($feedbackOrder, $token) && !$delivery->validToken($feedbackOrder, str_repeat('0', 32)) && !$delivery->validToken($feedbackOrder, ''), 'Order-specific token validation failed');
+rs_assert(is_string($token) && strlen($token) === 22, 'Order-specific secret missing');
+rs_assert($delivery->validToken($feedbackOrder, $token) && !$delivery->validToken($feedbackOrder, str_repeat('0', 22)) && !$delivery->validToken($feedbackOrder, ''), 'Order-specific token validation failed');
+$feedbackOrder->update_meta_data('_rs_feedback_last_sent', time() - 61); $feedbackOrder->save();
 $options->update(['delivery_feedback' => ['mode' => 'pattern', 'pattern' => 'test-pattern']]);
-rs_assert($delivery->send($feedbackOrder) === true && $GLOBALS['rs_test_sms']['type'] === 'pattern' && str_contains($GLOBALS['rs_test_sms']['args']['link'], 'rs_delivery='), 'Pattern SMS parameters incorrect');
+rs_assert($delivery->send($feedbackOrder) === true && $GLOBALS['rs_test_sms']['type'] === 'pattern' && str_contains($GLOBALS['rs_test_sms']['args']['link'], 'rsd='), 'Pattern SMS parameters incorrect');
 $options->update(['delivery_feedback' => ['mode' => 'text']]);
 
 $invalid = $delivery->saveResponse($feedbackOrder, ['received' => 'no', 'reason' => 'unknown']);

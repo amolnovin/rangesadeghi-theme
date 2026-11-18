@@ -62,6 +62,7 @@ final class SingleProductComposer extends ViewComposer
                         'rating' => max(1, min(5, $rate ?: 5)),
                         'verified' => $verified,
                         'text' => wp_strip_all_tags($c->comment_content),
+                        'images' => array_values(array_filter(array_map(static fn($id) => wp_get_attachment_image_url((int) $id, 'medium'), (array) get_comment_meta((int) $c->comment_ID, '_rs_feedback_images', true)))),
                     ];
                 }
 

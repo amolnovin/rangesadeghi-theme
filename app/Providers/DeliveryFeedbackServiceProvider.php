@@ -82,17 +82,17 @@ final class DeliveryFeedbackServiceProvider extends ServiceProvider
     {
         $token = (string) $order->get_meta('_rs_feedback_token');
         if ($token === '') {
-            $token = bin2hex(random_bytes(16));
+            $token = rtrim(strtr(base64_encode(random_bytes(16)), '+/', '-_'), '=');
             $order->update_meta_data('_rs_feedback_token', $token);
             $order->save();
         }
-        return add_query_arg(['rs_delivery' => $order->get_id(), 't' => $token], home_url('/'));
+        return add_query_arg('rsd', $order->get_id() . '.' . $token, home_url('/'));
     }
 
     public function validToken(WC_Order $order, string $token): bool
     {
         $stored = (string) $order->get_meta('_rs_feedback_token');
-        return strlen($token) === 32 && $stored !== '' && hash_equals($stored, $token);
+        return $stored !== '' && hash_equals($stored, $token);
     }
 
     public function send(WC_Order $order): bool|WP_Error
@@ -101,8 +101,17 @@ final class DeliveryFeedbackServiceProvider extends ServiceProvider
         $lock = 'rs-feedback-' . $order->get_id();
         if ((int) $wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s, 0)', $lock)) !== 1) return new WP_Error('busy', 'عملیات دیگری برای سفارش در حال انجام است.');
         try {
+            return $this->sendLocked($order);
+        } finally {
+            $wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)', $lock));
+        }
+    }
+
+    private function sendLocked(WC_Order $order): bool|WP_Error
+    {
         $order = wc_get_order($order->get_id());
         if (!$order || !$this->eligible($order)) return new WP_Error('not_shipped', 'سفارش در وضعیت ارسال انتخاب‌شده نیست یا قبلاً تحویل شده است.');
+        if (time() - (int) $order->get_meta('_rs_feedback_last_sent') < 60) return new WP_Error('already_sent', 'پیامک اخیراً ارسال شده است؛ لطفاً یک دقیقه صبر کنید.');
         if (!function_exists('ippanel_send_external_sms') || !function_exists('ippanel_get_external_plugin_token')) return new WP_Error('missing_core', 'افزونه IPPanel Core فعال نیست.');
         $token = (string) ippanel_get_external_plugin_token(self::SLUG);
         if ($token === '') return new WP_Error('missing_token', 'اتصال افزونه در IPPanel Core تنظیم نشده است.');
@@ -127,24 +136,30 @@ final class DeliveryFeedbackServiceProvider extends ServiceProvider
         $order->update_meta_data('_rs_feedback_last_sent', time());
         $order->save();
         return true;
-        } finally {
-            $wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)', $lock));
-        }
     }
 
     public function scheduledReminder($id): void
     {
-        $order = wc_get_order((int) $id);
-        if (!$order || !rs_option('delivery_feedback.enabled', false) || !$this->eligible($order)) return;
-        $result = $this->send($order);
-        $order = wc_get_order((int) $id);
-        if (!$order || !$this->eligible($order) || !rs_option('delivery_feedback.enabled', false)) return;
-        wp_clear_scheduled_hook(self::CRON, [(int) $id]);
-        if (is_wp_error($result)) {
-            $order->add_order_note('ارسال پیامک بازخورد ناموفق بود: ' . $result->get_error_message());
-            wp_schedule_single_event(time() + DAY_IN_SECONDS, self::CRON, [(int) $id]);
-        } elseif ($order->get_meta('_rs_feedback_no_response')) {
-            wp_schedule_single_event(time() + 4 * DAY_IN_SECONDS, self::CRON, [(int) $id]);
+        global $wpdb;
+        $id = (int) $id;
+        $lock = 'rs-feedback-' . $id;
+        if ((int) $wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s, 0)', $lock)) !== 1) {
+            wp_schedule_single_event(time() + 5 * MINUTE_IN_SECONDS, self::CRON, [$id]);
+            return;
+        }
+        try {
+            $order = wc_get_order($id);
+            if (!$order || !rs_option('delivery_feedback.enabled', false) || !$this->eligible($order)) return;
+            $result = $this->sendLocked($order);
+            wp_clear_scheduled_hook(self::CRON, [$id]);
+            if (is_wp_error($result)) {
+                $order->add_order_note('ارسال پیامک بازخورد ناموفق بود: ' . $result->get_error_message());
+                wp_schedule_single_event(time() + DAY_IN_SECONDS, self::CRON, [$id]);
+            } elseif ($order->get_meta('_rs_feedback_no_response')) {
+                wp_schedule_single_event(time() + 4 * DAY_IN_SECONDS, self::CRON, [$id]);
+            }
+        } finally {
+            $wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)', $lock));
         }
     }
 
@@ -173,12 +188,13 @@ final class DeliveryFeedbackServiceProvider extends ServiceProvider
     /** The bearer token authenticates only this form, never the account or order details. */
     public function feedbackRoute(): void
     {
-        if (!isset($_GET['rs_delivery'])) return;
+        if (!isset($_GET['rsd']) && !isset($_GET['rs_delivery'])) return;
         nocache_headers();
         header('Referrer-Policy: no-referrer');
         header('X-Robots-Tag: noindex, nofollow', true);
-        $id = absint($_GET['rs_delivery']);
-        $token = sanitize_text_field((string) wp_unslash($_GET['t'] ?? ''));
+        $parts = explode('.', (string) wp_unslash($_GET['rsd'] ?? ''), 2);
+        $id = absint($_GET['rs_delivery'] ?? ($parts[0] ?? 0));
+        $token = sanitize_text_field((string) wp_unslash($_GET['t'] ?? ($parts[1] ?? '')));
         $order = rs_is_wc() ? wc_get_order($id) : false;
         $valid = $order && $this->validToken($order, $token);
         $message = '';
@@ -252,7 +268,10 @@ final class DeliveryFeedbackServiceProvider extends ServiceProvider
             $commentId = 0;
             if ($review !== '') {
                 $commentId = wp_insert_comment(['comment_post_ID' => $productId, 'comment_author' => $order->get_formatted_billing_full_name() ?: 'مشتری', 'comment_author_email' => $order->get_billing_email(), 'comment_content' => $review, 'comment_type' => 'review', 'comment_approved' => '0', 'user_id' => (int) $order->get_customer_id()]);
-                if (!$commentId) return new WP_Error('comment', 'ثبت نظر ممکن نشد. دوباره تلاش کنید.');
+                if (!$commentId) {
+                    foreach ($photos as $photoId) wp_delete_attachment($photoId, true);
+                    return new WP_Error('comment', 'ثبت نظر ممکن نشد. دوباره تلاش کنید.');
+                }
                 update_comment_meta($commentId, 'rating', $productRating);
                 update_comment_meta($commentId, 'verified', 1);
                 update_comment_meta($commentId, '_rs_recommend', $recommend);
@@ -289,9 +308,16 @@ final class DeliveryFeedbackServiceProvider extends ServiceProvider
         foreach ($file['name'] as $i => $name) {
             $single = ['name' => sanitize_file_name((string) $name), 'type' => $file['type'][$i], 'tmp_name' => $file['tmp_name'][$i], 'error' => $file['error'][$i], 'size' => $file['size'][$i]];
             $uploaded = wp_handle_upload($single, ['test_form' => false, 'mimes' => ['jpg|jpeg|jpe' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp']]);
-            if (isset($uploaded['error'])) return new WP_Error('photo_upload', 'ذخیره تصویر ناموفق بود.');
+            if (isset($uploaded['error'])) {
+                foreach ($ids as $id) wp_delete_attachment($id, true);
+                return new WP_Error('photo_upload', 'ذخیره تصویر ناموفق بود.');
+            }
             $id = wp_insert_attachment(['post_mime_type' => $uploaded['type'], 'post_title' => 'تصویر بازخورد سفارش', 'post_status' => 'inherit'], $uploaded['file']);
-            if (is_wp_error($id) || !$id) return new WP_Error('photo_attachment', 'ثبت تصویر ناموفق بود.');
+            if (is_wp_error($id) || !$id) {
+                wp_delete_file($uploaded['file']);
+                foreach ($ids as $previousId) wp_delete_attachment($previousId, true);
+                return new WP_Error('photo_attachment', 'ثبت تصویر ناموفق بود.');
+            }
             wp_update_attachment_metadata($id, wp_generate_attachment_metadata($id, $uploaded['file']));
             $ids[] = (int) $id;
         }
