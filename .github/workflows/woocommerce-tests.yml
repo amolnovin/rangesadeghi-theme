@@ -393,3 +393,59 @@ jobs:
           فایل `rangesadeghi-wordpress-2.2.7.zip` نسخه کامل قالب است. فایل‌های `rangesadeghi-patch-2.2.7.zip` و `rangesadeghi-patch-2.2.7.json` پچ ارتقا از نسخه ۲.۲.۶ هستند و ZIP پچ فایل نصب پوسته نیست. ابتدا از سایت نسخه پشتیبان تهیه و در محیط آزمایشی با مناطق ارسال و افزونه‌های سایت بررسی کنید.
           NOTES
           gh release create v2.2.7 "$RUNNER_TEMP/release/rangesadeghi-wordpress-2.2.7.zip" "$RUNNER_TEMP/release/rangesadeghi-patch-2.2.7.zip" "$RUNNER_TEMP/release/rangesadeghi-patch-2.2.7.json" --target "$GITHUB_SHA" --title 'رنگ صادقی ۲.۲.۷' --notes-file "$RUNNER_TEMP/notes.md" --prerelease
+
+  publish-payment-2-2-8:
+    needs: integration
+    if: github.event_name == 'push' && github.ref == 'refs/heads/arena/7235594f-rangesadeghi-theme' && startsWith(github.event.head_commit.message, 'Publish checkout release 2.2.8')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Build and verify theme and patch
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/release"
+          git archive --format=zip --prefix=rangesadeghi/ --output="$RUNNER_TEMP/release/rangesadeghi-wordpress-2.2.8.zip" "$GITHUB_SHA" -- \
+            app bootstrap config resources assets woocommerce 404.php archive.php comments.php footer.php \
+            front-page.php functions.php header.php home.php index.php page.php rtl.css screenshot.png \
+            search.php single.php style.css styles.css pages.css home.css template-about.php \
+            template-categories.php template-contact.php template-order-tracking.php template-stores.php \
+            theme.json woocommerce.php WORDPRESS.md
+          python3 tools/make-patch.py --version 2.2.8 --min-version 2.2.7 \
+            --files style.css app/Providers/WooCommerceServiceProvider.php app/WooCommerce/Payments/CardTransfer.php resources/css/wp-compat.css resources/js/theme.js woocommerce/checkout/form-checkout.php woocommerce/checkout/payment.php woocommerce/checkout/rs-terms.php \
+            --notes 'اصلاح زمان تحویل حضوری و بازطراحی پرداخت' --out-dir "$RUNNER_TEMP/release"
+          python3 - <<'PY'
+          import os, zipfile, json, hashlib, base64, subprocess
+          base = os.path.join(os.environ['RUNNER_TEMP'], 'release')
+          expected = {'app/Providers/WooCommerceServiceProvider.php', 'woocommerce/checkout/payment.php', 'app/WooCommerce/Payments/CardTransfer.php', 'woocommerce/checkout/form-checkout.php', 'style.css', 'resources/js/theme.js', 'woocommerce/checkout/rs-terms.php', 'resources/css/wp-compat.css'}
+          with zipfile.ZipFile(os.path.join(base, 'rangesadeghi-wordpress-2.2.8.zip')) as full, zipfile.ZipFile(os.path.join(base, 'rangesadeghi-patch-2.2.8.zip')) as patch:
+              assert full.testzip() is None and patch.testzip() is None
+              assert b'Version: 2.2.8' in full.read('rangesadeghi/style.css')
+              manifest = json.loads(patch.read('patch.json'))
+              bundle = json.load(open(os.path.join(base, 'rangesadeghi-patch-2.2.8.json')))
+              assert manifest['min_version'] == '2.2.7' and manifest['target_version'] == '2.2.8'
+              assert set(manifest['files']) == expected
+              for name, meta in manifest['files'].items():
+                  data = patch.read('files/' + name)
+                  assert data == full.read('rangesadeghi/' + name) == subprocess.check_output(['git', 'show', os.environ['GITHUB_SHA'] + ':' + name])
+                  assert hashlib.sha256(data).hexdigest() == meta['sha256']
+                  assert data == base64.b64decode(bundle['files'][name]['content_base64'])
+          PY
+      - name: Publish tested release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/notes.md" <<'NOTES'
+          ## قالب رنگ صادقی ۲.۲.۸
+
+          در تحویل حضوری، جمعه‌ها در انتخاب زمان و اعتبارسنجی سفارش حذف شده‌اند. جابه‌جایی مراحل به بالای صفحه اسکرول می‌کند و چیدمان مرحله پرداخت با حفظ درگاه‌ها و ثبت سفارش ووکامرس اصلاح شده است. پذیرش قوانین و شرایط بازگشت برای ثبت سفارش الزامی است.
+
+          درگاه کارت‌به‌کارت به‌صورت پیش‌فرض غیرفعال است؛ در ووکامرس ← پیکربندی ← پرداخت‌ها، شماره کارت و نام صاحب کارت واقعی را ثبت و درگاه را فعال کنید. سفارش‌های کارت‌به‌کارت تا بررسی و تأیید واریز توسط فروشگاه «در انتظار بررسی» می‌مانند و خودکار پرداخت‌شده نمی‌شوند. پیوند قوانین از برگه قوانین ووکامرس (یا صفحه تماس در صورت نبود برگه) و پیوند بازگشت کالا از صفحه تماس قالب استفاده می‌کند؛ محتوای صفحات را پیش از استفاده بررسی کنید.
+
+          فایل `rangesadeghi-wordpress-2.2.8.zip` نسخه کامل قالب است. فایل‌های `rangesadeghi-patch-2.2.8.zip` و `rangesadeghi-patch-2.2.8.json` پچ ارتقا از نسخه ۲.۲.۷ هستند و ZIP پچ فایل نصب پوسته نیست. پیش از نصب پشتیبان تهیه و در محیط آزمایشی، درگاه‌ها، قوانین و روش‌های ارسال فروشگاه را بررسی کنید.
+          NOTES
+          gh release create v2.2.8 "$RUNNER_TEMP/release/rangesadeghi-wordpress-2.2.8.zip" "$RUNNER_TEMP/release/rangesadeghi-patch-2.2.8.zip" "$RUNNER_TEMP/release/rangesadeghi-patch-2.2.8.json" --target "$GITHUB_SHA" --title 'رنگ صادقی ۲.۲.۸' --notes-file "$RUNNER_TEMP/notes.md" --prerelease

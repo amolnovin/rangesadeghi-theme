@@ -18,13 +18,14 @@ const dom = new JSDOM(`<!doctype html><html><body>
 <label><input id="rs-receiver-self" type="checkbox" checked><span data-rs-self-info></span></label><div data-rs-receiver-fields><input id="rs-receiver-name"><input id="rs-receiver-phone"></div>
 
 <div class="rs-order-notes"><textarea name="order_comments">message</textarea></div></section>
-<section data-rs-checkout-panel="review"><h2 data-rs-review-heading></h2><p data-rs-review-description></p><div class="woocommerce-checkout-review-order-table"><div class="shipping"><ul class="woocommerce-shipping-methods"><li><input type="radio" id="s1" name="shipping_method[0]" checked><label for="s1">Real shipping</label><span class="rs-rate-info" data-rs-rate-kind="rs_store_courier" data-rs-rate-eta="" hidden></span></li><li><input type="radio" id="s2" name="shipping_method[0]"><label for="s2">Other method</label><span class="rs-rate-info" data-rs-rate-kind="flat_rate" data-rs-rate-eta="Three days" hidden></span></li></ul></div></div><div id="payment"><input type="radio" name="payment_method" id="pay1" checked><label for="pay1">Real gateway</label></div></section>
-<div data-rs-shipping-extra><div data-rs-slot-card hidden><label><input type="radio" name="rs_delivery_day" value="2030-01-02"></label><label><input type="radio" name="rs_delivery_slot" value="Morning"></label></div><div data-rs-eta-card hidden><p data-rs-eta-text></p></div><input type="checkbox" name="rs_gift_wrap"></div>
-<div data-rs-payment-extra><div data-rs-final-review hidden><b data-rs-review-address></b><b data-rs-review-shipping></b><b data-rs-review-payment></b><button type="button" data-rs-edit-address></button></div><div data-rs-coupon-card hidden><input data-rs-coupon-input><button type="button" data-rs-coupon-submit></button><p data-rs-coupon-notice></p></div></div>
-<nav><button type="button" data-rs-checkout-back></button><button type="button" data-rs-checkout-next></button></nav></form>
+<section data-rs-checkout-panel="review"><h2 data-rs-review-heading></h2><p data-rs-review-description></p><div class="woocommerce-checkout-review-order-table"><div class="shipping"><ul class="woocommerce-shipping-methods"><li><input type="radio" id="s1" name="shipping_method[0]" checked><label for="s1">Real shipping</label><span class="rs-rate-info" data-rs-rate-kind="rs_store_courier" data-rs-rate-eta="" hidden></span></li><li><input type="radio" id="s3" name="shipping_method[0]"><label for="s3">Store pickup</label><span class="rs-rate-info" data-rs-rate-kind="rs_store_pickup" data-rs-rate-eta="" hidden></span></li><li><input type="radio" id="s2" name="shipping_method[0]"><label for="s2">Other method</label><span class="rs-rate-info" data-rs-rate-kind="flat_rate" data-rs-rate-eta="Three days" hidden></span></li></ul></div></div><div id="payment"><input type="radio" name="payment_method" id="pay1" checked><label for="pay1">Real gateway</label><div class="form-row place-order"><button type="submit" id="place_order">Pay securely</button></div></div></section>
+<div data-rs-shipping-extra><div data-rs-slot-card hidden><label data-rs-courier-day="1" data-rs-pickup-day="1"><input type="radio" name="rs_delivery_day" value="2030-01-02"></label><label data-rs-courier-day="1" data-rs-pickup-day="0"><input type="radio" name="rs_delivery_day" value="2030-01-04"></label><label data-rs-courier-day="0" data-rs-pickup-day="1"><input type="radio" name="rs_delivery_day" value="2030-01-09"></label><label><input type="radio" name="rs_delivery_slot" value="Morning"></label></div><div data-rs-eta-card hidden><p data-rs-eta-text></p></div><input type="checkbox" name="rs_gift_wrap"></div>
+<div data-rs-payment-extra><div data-rs-final-review><input type="checkbox" name="terms" id="terms"><b data-rs-review-address></b><b data-rs-review-shipping></b><b data-rs-review-payment></b><button type="button" data-rs-edit-address></button></div><div data-rs-coupon-card hidden><input data-rs-coupon-input><button type="button" data-rs-coupon-submit></button><p data-rs-coupon-notice></p></div></div>
+<nav><button type="button" data-rs-checkout-back></button><button type="button" data-rs-checkout-next></button><button type="button" data-rs-place-order hidden></button></nav></form>
 </body></html>`, { url: 'https://example.test/checkout/', runScripts: 'outside-only' });
 const w = dom.window;
-const events = [], handlers = {}, requests = [];
+const events = [], handlers = {}, requests = [], scrolls = [];
+w.scrollTo = options => scrolls.push(options);
 w.jQuery = () => ({ on(name, handler) { handlers[name] = handler; }, trigger(name) { events.push(name); } });
 w.RS_WP = { cartUrl: '/cart/', ajaxUrl: '/admin-ajax.php', nonce: 'public-nonce', wishlist: [] };
 w.wc_checkout_params = { wc_ajax_url: '/?wc-ajax=%%endpoint%%', apply_coupon_nonce: 'nonce' };
@@ -71,8 +72,22 @@ q('#rs-receiver-name').value = 'Other Person'; q('#rs-receiver-phone').value = '
 next.click(); assert.equal(form.dataset.rsStep, 'shipping'); assert(events.includes('update_checkout'));
 assert.equal(w.document.querySelector('[data-rs-indicator="shipping"]').getAttribute('aria-current'), 'step');
 assert(form.querySelector('[data-rs-shipping-extra] .rs-order-notes textarea'));
+assert.equal(scrolls.length, 1, 'Successful step change should scroll to top');
+const friday = q('[value="2030-01-04"]'); friday.click(); assert.equal(friday.checked, true);
+q('#s3').click(); assert.equal(friday.disabled, true); assert.equal(friday.checked, false); assert.equal(friday.closest('label').hidden, true);
+assert.equal(q('[value="2030-01-09"]').disabled, false, 'Pickup extends available days after Friday');
+q('#s1').click(); assert.equal(friday.disabled, false); assert.equal(q('[value="2030-01-09"]').disabled, true);
 q('[name=rs_delivery_day]').click(); next.click(); assert.equal(form.dataset.rsStep, 'shipping');
 q('[name=rs_delivery_slot]').click(); next.click(); assert.equal(form.dataset.rsStep, 'payment'); assert.equal(next.hidden, true);
+assert.equal(scrolls.length, 2);
+const proxy = q('[data-rs-place-order]'); assert.equal(proxy.hidden, false);
+let submitted = 0; q('#place_order').addEventListener('click', e => { e.preventDefault(); submitted++; });
+proxy.click(); assert.equal(submitted, 0, 'Cannot submit without agreeing to policies');
+q('#terms').checked = true; proxy.click(); assert.equal(submitted, 1, 'Proxy should use real WooCommerce submit');
+const newPlace = w.document.createElement('button'); newPlace.type = 'submit'; newPlace.id = 'place_order'; newPlace.textContent = 'Pay via gateway';
+newPlace.addEventListener('click', e => { e.preventDefault(); submitted++; }); q('#place_order').replaceWith(newPlace);
+handlers.updated_checkout(); assert.equal(proxy.textContent, 'Pay via gateway'); assert.equal(q('#terms').checked, true);
+proxy.click(); assert.equal(submitted, 2, 'Proxy must use the latest WooCommerce fragment button');
 assert(q('[data-rs-review-address]').textContent.includes('A new street'));
 assert.equal(q('[data-rs-review-shipping]').textContent, 'Real shipping'); assert.equal(q('[data-rs-review-payment]').textContent, 'Real gateway');
 q('[data-rs-coupon-input]').value = 'REAL'; q('[data-rs-coupon-submit]').click(); await new Promise(resolve => setTimeout(resolve, 0));
