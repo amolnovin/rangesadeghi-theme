@@ -271,6 +271,7 @@
             <p>{{ $home['news_card_desc'] ?? 'با عضویت در خبرنامه، پیشنهادهای هفتگی و مقاله‌های تخصصی رنگ را دریافت کنید.' }}</p>
             <form class="hx-news-form" data-newsletter-form>
               <input type="text" name="contact" placeholder="ایمیل یا شماره موبایل" aria-label="ایمیل یا شماره موبایل" required>
+              @if(class_exists('WP_MC_Captcha') && class_exists('WP_MC_Core') && \WP_MC_Core::get('enabled', 1)){!! \WP_MC_Captcha::output() !!}@endif
               <button class="btn btn-primary" type="submit">عضویت</button>
             </form>
             <small class="hx-news-note">با عضویت، قوانین حریم خصوصی فروشگاه را می‌پذیرید.</small>

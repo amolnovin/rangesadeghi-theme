@@ -101,6 +101,7 @@
             <p style="font-size:13px;color:var(--muted);margin:8px 0 12px">جدیدترین تکنیک‌های پتینه و تخفیف‌ها را دریافت کنید.</p>
             <form data-newsletter-form style="display:grid;gap:8px">
               <input type="text" name="contact" required placeholder="ایمیل یا شماره موبایل">
+              @if(class_exists('WP_MC_Captcha') && class_exists('WP_MC_Core') && \WP_MC_Core::get('enabled', 1)){!! \WP_MC_Captcha::output() !!}@endif
               <button class="btn btn-outline btn-sm" type="submit">عضویت در خبرنامه</button>
             </form>
           </section>

@@ -134,11 +134,10 @@
     <!-- هدر موبایل -->
     <div class="mobile-header mobile-only">
       <div class="hx-mobile-top">
-        <button class="mobile-menu-button" type="button" aria-label="باز کردن منو"><svg><use href="#i-menu"/></svg></button>
         <a href="{{ home_url('/') }}" class="mobile-logo"><img src="{{ rs_img($general['logo_mobile'] ?? 'assets/images/logo-alt.webp') }}" alt="{{ get_bloginfo('name') }}"></a>
-        <a class="hx-mobile-store" href="{{ rs_page_url('stores') }}" aria-label="فروشگاه‌ها"><svg><use href="#i-store"/></svg></a>
+        <button class="hx-mobile-search-toggle" type="button" aria-label="باز کردن جستجو" aria-controls="mobile-search-box" aria-expanded="false"><svg><use href="#i-search"/></svg></button>
       </div>
-      <div class="search-box mobile-search">
+      <div class="search-box mobile-search" id="mobile-search-box" hidden>
         <form class="search-form" action="{{ home_url('/') }}" method="get" data-search-form>
           <input type="hidden" name="post_type" value="product">
           <input type="search" name="s" value="{{ get_search_query() }}" placeholder="جستجوی محصولات" aria-label="جستجوی محصولات" autocomplete="off">

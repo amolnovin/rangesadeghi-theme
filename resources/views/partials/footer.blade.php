@@ -60,9 +60,9 @@
           <h3>مجوزهای سایت</h3>
           @if(!empty($general['enamad_code']))
             <div class="enamad">{!! $general['enamad_code'] !!}</div>
-          @else
+          @elseif(!empty($general['enamad_image']))
             <a class="enamad" href="{{ $general['enamad_url'] ?? '#' }}" target="_blank" rel="noopener" aria-label="نماد اعتماد الکترونیکی">
-              <span class="enamad-mark"><svg><use href="#i-shield"/></svg>اینماد</span><small>نماد اعتماد الکترونیکی</small>
+              <img src="{{ rs_img($general['enamad_image']) }}" alt="نماد اعتماد الکترونیکی" loading="lazy" style="max-width:110px;max-height:110px;object-fit:contain"><small>نماد اعتماد الکترونیکی</small>
             </a>
           @endif
           <span class="hx-license-note"><svg><use href="#i-shield"/></svg>پرداخت امن با درگاه بانکی</span>

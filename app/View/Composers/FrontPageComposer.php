@@ -71,6 +71,21 @@ final class FrontPageComposer extends ViewComposer
     private function resolveHomeCategories(): array
     {
         if (rs_is_wc() && taxonomy_exists('product_cat')) {
+            $raw = Persian::toEn((string) rs_option('home.category_ids', ''));
+            $ids = array_values(array_unique(array_filter(array_map('absint', preg_split('/[\s,،]+/u', trim($raw))))));
+            if ($ids !== []) {
+                $selected = [];
+                foreach ($ids as $id) {
+                    $term = get_term($id, 'product_cat');
+                    if (!$term || is_wp_error($term)) continue;
+                    $link = get_term_link($term);
+                    if (is_wp_error($link)) continue;
+                    $thumb = (int) get_term_meta($id, 'thumbnail_id', true);
+                    $image = $thumb ? wp_get_attachment_image_url($thumb, 'medium') : false;
+                    $selected[] = ['name' => $term->name, 'url' => (string) $link, 'img' => $image ?: rs_img('cat-building.webp'), 'count_fa' => rs_fa((int) $term->count) . ' کالا'];
+                }
+                return $selected;
+            }
             $terms = get_terms([
                 'taxonomy' => 'product_cat',
                 'hide_empty' => false,

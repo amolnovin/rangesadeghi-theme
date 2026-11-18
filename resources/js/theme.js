@@ -60,7 +60,7 @@
   function closeLayers() {
     $$('.side-drawer.open').forEach(d => { d.classList.remove('open'); d.setAttribute('aria-hidden', 'true'); });
     $$('.modal.open').forEach(m => { m.classList.remove('open'); m.setAttribute('aria-hidden', 'true'); });
-    $('#shop-sidebar')?.classList.remove('open');
+    $('#shop-sidebar')?.classList.remove('open', 'is-open');
     $('#page-overlay')?.classList.remove('active');
     document.body.classList.remove('no-scroll');
   }
@@ -119,6 +119,13 @@
 
   /* -------------------- مگامنو و منوی موبایل -------------------- */
   function initNavigation() {
+    const mobileSearch = $('#mobile-search-box');
+    $('.hx-mobile-search-toggle')?.addEventListener('click', e => {
+      if (!mobileSearch) return;
+      mobileSearch.hidden = !mobileSearch.hidden;
+      e.currentTarget.setAttribute('aria-expanded', String(!mobileSearch.hidden));
+      if (!mobileSearch.hidden) $('input[type=search]', mobileSearch)?.focus();
+    });
     const catBtn = $('#category-button');
     const catNav = $('.category-nav');
 
@@ -363,12 +370,13 @@
     }
   }
 
-  async function addProductToCart(productId, quantity = 1, variationId = 0, variation = {}) {
+  async function addProductToCart(productId, quantity = 1, variationId = 0, variation = {}, consent = false) {
     const res = await wpAjax('rs_cart_add', {
       product_id: productId,
       quantity,
       variation_id: variationId,
-      variation
+      variation,
+      rs_product_consent: consent ? 'yes' : ''
     });
 
     if (res.success) {
@@ -531,7 +539,7 @@
     });
 
     $('[data-open-filters]')?.addEventListener('click', () => {
-      sidebar.classList.add('open');
+      sidebar.classList.add('open', 'is-open');
       showOverlay();
     });
 
@@ -564,6 +572,14 @@
     const wrap = $('[data-single-product]');
     if (!wrap) return;
 
+    const sticky = $('.sticky-buy');
+    const price = $('.price-block', wrap);
+    if (sticky && price) {
+      const updateSticky = () => sticky.classList.toggle('is-visible', price.getBoundingClientRect().bottom < 0);
+      window.addEventListener('scroll', updateSticky, { passive: true });
+      window.addEventListener('resize', updateSticky);
+      updateSticky();
+    }
     const mainImg = $('#gallery-main img', wrap);
     $$('#gallery-thumbs [data-thumb]', wrap).forEach(btn => {
       btn.addEventListener('click', () => {
@@ -618,6 +634,10 @@
       });
     });
 
+    const consent = $('#rs-product-consent');
+    if (consent) consent.addEventListener('change', () => {
+      $$('[data-single-add]').forEach(btn => { btn.disabled = !consent.checked || !!btn.dataset.outOfStock; });
+    });
     $$('[data-single-add]').forEach(btn => {
       btn.addEventListener('click', () => {
         const chosen = {};
@@ -625,7 +645,7 @@
           const active = $('.active', g);
           if (active) chosen[g.dataset.wcAttribute] = active.dataset.attrVal;
         });
-        addProductToCart(btn.dataset.singleAdd, qty, selectedVarId, chosen);
+        addProductToCart(btn.dataset.singleAdd, qty, selectedVarId, chosen, !!consent?.checked);
       });
     });
 
@@ -1271,10 +1291,10 @@
     /* خبرنامه */
     $$('[data-newsletter-form]').forEach(form => form.addEventListener('submit', async e => {
       e.preventDefault();
-      const input = $('input[name="contact"]', form) || $('input', form);
-      const res = await wpAjax('rs_newsletter_subscribe', { contact: input?.value.trim() || '' });
+      const res = await wpAjax('rs_newsletter_subscribe', Object.fromEntries(new FormData(form).entries()));
       showToast(res.data?.message || '', res.success ? 'i-check' : 'i-info');
       if (res.success) form.reset();
+      $('.wpmc-refresh', form)?.click();
     }));
 
     /* فرم تماس با ما */
@@ -1285,6 +1305,7 @@
       const res = await wpAjax('rs_contact_submit', Object.fromEntries(fd.entries()));
       showToast(res.data?.message || '', res.success ? 'i-check' : 'i-info');
       if (res.success) form.reset();
+      $('.wpmc-refresh', form)?.click();
     });
 
     /* مودال ورود سریع */

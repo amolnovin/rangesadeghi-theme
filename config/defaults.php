@@ -43,6 +43,8 @@ return [
         'address' => 'مازندران، آمل، خیابان طالب آملی، دریای ۳۰/۱، پلاک ۴۴۴',
         'address_short' => 'آمل، خیابان طالب آملی، نبش دریای ۳۰/۱ — پلاک ۴۴۴',
         'map_url' => 'https://rangsadeghy.com/store-locations/',
+        'map_latitude' => '',
+        'map_longitude' => '',
         'instagram' => 'https://www.instagram.com/rangsadeghy',
         'whatsapp' => 'https://wa.me/989113294688',
         'telegram' => 'https://t.me/rangsadeghy',
@@ -51,6 +53,7 @@ return [
         'footer_about' => 'فروشگاه رنگ صادقی با تمرکز تخصصی بر رنگ ساختمانی، رنگ صنعتی، رنگ پتینه، هنری و ابزارآلات دستی و برقی حرفه‌ای فعالیت می‌کند؛ با هدف ارائه مجموعه‌ای کامل از محصولات معتبر برای خریدی امن، سریع و دقیق.',
         'enamad_url' => 'https://trustseal.enamad.ir/?id=574425&Code=e8HImAQ72k1oH8npkUuHCXT0c1OmYjHr',
         'enamad_code' => '',
+        'enamad_image' => '',
         'copyright_text' => 'تمامی حقوق فروشگاه رنگ صادقی محفوظ می‌باشد و هرگونه کپی‌برداری مستلزم کسب اجازه‌ی کتبی است.',
         'credit_label' => 'آمل نوین',
         'credit_url' => 'https://amolnovin.ir/',
@@ -110,6 +113,7 @@ return [
         // ۲) ردیف دسته‌بندی‌ها
         'categories_enabled' => true,
         'categories_title' => 'خرید بر اساس دسته‌بندی',
+        'category_ids' => '',
 
         // ۳) پیشنهاد شگفت‌انگیز
         'deal_enabled' => true,
@@ -236,6 +240,8 @@ return [
      * ۴. تنظیمات تک‌صفحه محصول
      * ====================================================================== */
     'product' => [
+        'consent_category_ids' => '',
+        'consent_text' => '',
         'gallery_zoom' => true,
         'show_sku' => true,
         'show_brand' => true,

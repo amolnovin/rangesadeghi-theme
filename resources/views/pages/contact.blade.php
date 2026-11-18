@@ -79,6 +79,7 @@
             <label class="checkline" style="margin:14px 0">
               <input type="checkbox" name="subscribe" value="1"> می‌خواهم از تخفیف‌ها و محصولات جدید رنگ صادقی باخبر شوم.
             </label>
+              @if(class_exists('WP_MC_Captcha') && class_exists('WP_MC_Core') && \WP_MC_Core::get('enabled', 1)){!! \WP_MC_Captcha::output() !!}@endif
             <button class="btn btn-primary" type="submit"><svg><use href="#i-send"/></svg>ارسال پیام</button>
             <p class="form-note">اطلاعات شما فقط برای پاسخ به همین درخواست استفاده می‌شود و در اختیار شخص ثالث قرار نمی‌گیرد.</p>
           </form>
@@ -86,10 +87,11 @@
 
         <aside class="contact-side">
           <div class="map-card">
-            <div class="map-canvas" role="img" aria-label="نقشه موقعیت فروشگاه رنگ صادقی در آمل">
-              <span class="map-label">فروشگاه رنگ صادقی</span>
-              <span class="map-pin"><svg><use href="#i-pin"/></svg></span>
-            </div>
+            @if(is_numeric($general['map_latitude'] ?? '') && is_numeric($general['map_longitude'] ?? '') && abs((float) $general['map_latitude']) <= 90 && abs((float) $general['map_longitude']) <= 180)
+              <div class="map-canvas rs-real-map"><iframe title="نقشه موقعیت فروشگاه" loading="lazy" referrerpolicy="no-referrer" src="{{ 'https://maps.google.com/maps?q=' . rawurlencode($general['map_latitude'] . ',' . $general['map_longitude']) . '&z=17&output=embed' }}"></iframe></div>
+            @else
+              <p class="rs-map-unavailable">برای مشاهده موقعیت دقیق، از پیوند مسیریابی استفاده کنید.</p>
+            @endif
             <div class="map-foot">
               <span>{{ $addressShortFa }}</span>
               <a class="text-link" href="{{ $general['map_url'] ?? '#' }}" target="_blank" rel="noopener">مسیریابی <svg><use href="#i-chevron-left"/></svg></a>

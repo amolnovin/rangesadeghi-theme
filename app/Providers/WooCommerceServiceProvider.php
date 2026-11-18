@@ -27,6 +27,10 @@ final class WooCommerceServiceProvider extends ServiceProvider
 
         // کارمزد بسته‌بندی هدیه در تسویه حساب ووکامرس
         add_action('woocommerce_cart_calculate_fees', [$this, 'applyGiftWrapFee']);
+        add_filter('woocommerce_add_to_cart_validation', [$this, 'validateProductConsent'], 10, 3);
+        add_filter('woocommerce_add_cart_item_data', [$this, 'storeProductConsent'], 10, 2);
+        add_action('woocommerce_check_cart_items', [$this, 'validateCartConsents']);
+        add_action('woocommerce_checkout_create_order_line_item', [$this, 'saveProductConsentToOrder'], 10, 4);
 
         // ذخیره متای اختصاصی تسویه حساب روی سفارش ووکامرس (سازگار با HPOS)
         add_action('woocommerce_checkout_create_order', [$this, 'saveCustomOrderMeta'], 10, 2);
@@ -441,6 +445,54 @@ final class WooCommerceServiceProvider extends ServiceProvider
         return $rates;
     }
 
+    public function productConsentText(int $productId): string
+    {
+        $text = trim((string) rs_option('product.consent_text', ''));
+        $raw = \App\Support\Persian::toEn((string) rs_option('product.consent_category_ids', ''));
+        $ids = array_filter(array_map('absint', preg_split('/[\s,،]+/u', trim($raw))));
+        if ($text === '' || !$ids || !function_exists('has_term')) return '';
+        $product = wc_get_product($productId);
+        if ($product && $product->is_type('variation')) $productId = $product->get_parent_id();
+        foreach ($ids as $id) {
+            $children = get_term_children($id, 'product_cat');
+            $terms = array_merge([$id], is_array($children) ? $children : []);
+            if (has_term($terms, 'product_cat', $productId)) return $text;
+        }
+        return '';
+    }
+
+    public function validateProductConsent($valid, $productId, $quantity): bool
+    {
+        if ($valid && $this->productConsentText((int) $productId) !== '' && ($_POST['rs_product_consent'] ?? '') !== 'yes') {
+            wc_add_notice('برای خرید این محصول ابتدا متن تأیید را در صفحه محصول بپذیرید.', 'error');
+            return false;
+        }
+        return (bool) $valid;
+    }
+
+    public function storeProductConsent(array $data, $productId): array
+    {
+        $text = $this->productConsentText((int) $productId);
+        if ($text !== '' && ($_POST['rs_product_consent'] ?? '') === 'yes') $data['rs_product_consent'] = $text;
+        return $data;
+    }
+
+    public function validateCartConsents(): void
+    {
+        if (!WC()->cart) return;
+        foreach (WC()->cart->get_cart() as $item) {
+            if ($this->productConsentText((int) ($item['product_id'] ?? 0)) !== '' && empty($item['rs_product_consent'])) {
+                wc_add_notice('تأیید شرایط یکی از محصولات سبد خرید ثبت نشده است؛ آن را حذف و از صفحه محصول دوباره اضافه کنید.', 'error');
+                return;
+            }
+        }
+    }
+
+    public function saveProductConsentToOrder($item, $cartItemKey, $values, $order): void
+    {
+        if (!empty($values['rs_product_consent'])) $item->add_meta_data('تأیید مشتری', sanitize_text_field((string) $values['rs_product_consent']), true);
+    }
+
     public function ajaxCartAdd(): void
     {
         check_ajax_referer('rs_public_nonce', 'nonce');
@@ -465,6 +517,10 @@ final class WooCommerceServiceProvider extends ServiceProvider
             wp_send_json_error(['message' => 'این محصول در حال حاضر قابل خرید نیست.']);
         }
 
+        if (!apply_filters('woocommerce_add_to_cart_validation', true, $productId, $qty, $variationId, $variation)) {
+            $notices = wc_get_notices('error'); wc_clear_notices();
+            wp_send_json_error(['message' => wp_strip_all_tags((string) ($notices[0]['notice'] ?? 'ابتدا شرایط محصول را تأیید کنید.'))]);
+        }
         $added = WC()->cart->add_to_cart($productId, $qty, $variationId, $variation);
         if (!$added) {
             wp_send_json_error(['message' => 'امکان افزودن محصول به سبد وجود نداشت (گزینه‌های متغیر را انتخاب کنید).']);

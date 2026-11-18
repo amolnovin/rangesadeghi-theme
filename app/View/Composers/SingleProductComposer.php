@@ -105,6 +105,7 @@ final class SingleProductComposer extends ViewComposer
             'product' => $vm,
             'attributes' => $attributes,
             'variations' => $variations,
+            'productConsent' => rs_is_wc() && !empty($vm['wc_id']) ? $this->app->make(\App\Providers\WooCommerceServiceProvider::class)->productConsentText((int) $vm['wc_id']) : '',
             'reviews' => $reviews,
             'relatedProducts' => $related,
             'wishlistIds' => ProductPresenter::currentUserWishlist(),

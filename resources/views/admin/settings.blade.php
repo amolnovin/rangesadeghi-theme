@@ -84,6 +84,9 @@
             <div class="rs-field"><label>ایمیل رسمی</label><input type="email" data-opt="general.email" value="{{ $opts['general']['email'] ?? '' }}" dir="ltr"></div>
             <div class="rs-field"><label>ساعات کاری</label><input type="text" data-opt="general.work_hours" value="{{ $opts['general']['work_hours'] ?? '' }}"></div>
             <div class="rs-field"><label>نشانی کامل</label><input type="text" data-opt="general.address" value="{{ $opts['general']['address'] ?? '' }}"></div>
+            <div class="rs-field"><label>عرض جغرافیایی دقیق فروشگاه (latitude)</label><input type="text" data-opt="general.map_latitude" value="{{ $opts['general']['map_latitude'] ?? '' }}" dir="ltr"></div>
+            <div class="rs-field"><label>طول جغرافیایی دقیق فروشگاه (longitude)</label><input type="text" data-opt="general.map_longitude" value="{{ $opts['general']['map_longitude'] ?? '' }}" dir="ltr"><small>مختصات دقیق را از نقشه کپی کنید؛ بدون آن نقشه فرضی نمایش داده نمی‌شود.</small></div>
+            <div class="rs-field"><label>تصویر رسمی اینماد</label><div class="rs-media-row"><input type="text" data-opt="general.enamad_image" value="{{ $opts['general']['enamad_image'] ?? '' }}" dir="ltr"><button type="button" class="rs-btn rs-btn-soft rs-media-pick">انتخاب تصویر</button></div><small>در صورت درج کد رسمی اینماد، همان کد اولویت دارد.</small></div>
             <div class="rs-field"><label>نشانی کوتاه (کارت صفحه اصلی)</label><input type="text" data-opt="general.address_short" value="{{ $opts['general']['address_short'] ?? '' }}"></div>
             <div class="rs-field"><label>لینک اینستاگرام</label><input type="url" data-opt="general.instagram" value="{{ $opts['general']['instagram'] ?? '' }}" dir="ltr"></div>
             <div class="rs-field"><label>لینک واتساپ</label><input type="url" data-opt="general.whatsapp" value="{{ $opts['general']['whatsapp'] ?? '' }}" dir="ltr"></div>
@@ -170,6 +173,7 @@
 
         <div class="rs-card">
           <h2>پیشنهاد شگفت‌انگیز، ریل‌های محصول و پالت رنگ</h2>
+          <div class="rs-field"><label>شناسه دسته‌های صفحه اصلی (به ترتیب، جداشده با ویرگول)</label><input type="text" data-opt="home.category_ids" value="{{ $opts['home']['category_ids'] ?? '' }}" dir="ltr"><small>شناسه خالی یعنی نمایش خودکار؛ نام، تعداد و تصویر از دسته ووکامرس خوانده می‌شود.</small></div>
           <div class="rs-grid-2">
             <div class="rs-field"><label>عنوان پیشنهاد شگفت‌انگیز</label><input type="text" data-opt="home.deal_title" value="{{ $opts['home']['deal_title'] ?? '' }}"></div>
             <div class="rs-field"><label>زیرعنوان پیشنهاد شگفت‌انگیز</label><input type="text" data-opt="home.deal_subtitle" value="{{ $opts['home']['deal_subtitle'] ?? '' }}"></div>
@@ -285,6 +289,7 @@
       <section class="rs-tab-panel {{ $activeTab === 'product' ? 'is-active' : '' }}" data-rs-panel="product">
         <div class="rs-card">
           <h2>جزئیات صفحه تک‌محصول (Single Product)</h2>
+          <div class="rs-grid-2"><div class="rs-field"><label>شناسه دسته‌های نیازمند تأیید (با ویرگول جدا کنید)</label><input type="text" data-opt="product.consent_category_ids" value="{{ $opts['product']['consent_category_ids'] ?? '' }}" dir="ltr"></div><div class="rs-field"><label>متن تأیید الزامی پیش از خرید</label><textarea rows="3" data-opt="product.consent_text">{{ $opts['product']['consent_text'] ?? '' }}</textarea><small>این شرط شامل زیردسته‌هاست و متن پذیرفته‌شده در ردیف سفارش ذخیره می‌شود.</small></div></div>
           <div class="rs-toggles">
             <label class="rs-switch"><input type="checkbox" data-opt="product.gallery_zoom" {{ !empty($opts['product']['gallery_zoom']) ? 'checked' : '' }}><span>دکمه بزرگ‌نمایی گالری تصویر</span></label>
             <label class="rs-switch"><input type="checkbox" data-opt="product.show_brand" {{ !empty($opts['product']['show_brand']) ? 'checked' : '' }}><span>نمایش نام برند</span></label>
