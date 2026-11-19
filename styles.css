@@ -87,7 +87,7 @@ svg:not(.svg-sprite){width:24px;height:24px;fill:none;stroke:currentColor;stroke
 .search-form input::-webkit-search-cancel-button{display:none}
 .search-form button{width:48px;height:100%;display:grid;place-items:center;background:transparent;border:0;color:#333}
 .search-form button svg{width:21px!important;height:21px!important}
-.search-results{position:absolute;top:calc(100% + 8px);right:0;left:0;max-height:420px;overflow:auto;background:#fff;border-radius:10px;box-shadow:var(--shadow);padding:10px;display:none;z-index:95}
+.search-box .search-results{position:absolute;top:calc(100% + 8px);right:0;left:0;max-height:420px;overflow:auto;background:#fff;border-radius:10px;box-shadow:var(--shadow);padding:10px;display:none;z-index:95}
 .search-box.open .search-results{display:block}
 .search-result-title{font-size:12px;font-weight:700;color:#777;padding:5px 8px 9px}
 .popular-searches{display:flex;flex-wrap:wrap;gap:6px;padding:0 5px 5px}

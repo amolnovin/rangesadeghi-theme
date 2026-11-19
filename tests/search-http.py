@@ -68,6 +68,8 @@ with tempfile.TemporaryFile(mode='w+t') as log:
         for logged_in in (False, True):
             html = search('پاستیل', cookie=logged_in)
             assert '<html' in html.lower() and 'id="shop-grid"' in html and 'رنگ پاستیلی' in html, f'Product search page missing: length={len(html)}'
+            body = re.search(r'<body\b[^>]*\bclass="([^"]*)"', html, re.I)
+            assert body and 'search-results' in body.group(1).split(), 'Expected WordPress search-results body class missing'
             assert html.count('class="product-card"') == 3, 'First page contains wrong number of results'
             if logged_in:
                 assert 'wp-admin-bar-my-account' in html, 'Authenticated request was not logged in'
