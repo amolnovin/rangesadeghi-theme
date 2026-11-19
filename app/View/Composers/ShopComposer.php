@@ -8,7 +8,7 @@ use App\Core\ViewComposer;
 use App\Support\DemoCatalog;
 use App\Support\Persian;
 use App\Support\ProductPresenter;
-use WP_Query;
+use App\Support\ProductSearch;
 
 final class ShopComposer extends ViewComposer
 {
@@ -41,7 +41,9 @@ final class ShopComposer extends ViewComposer
             $view = 'grid';
         }
 
-        $searchQuery = sanitize_text_field((string) ($params['q'] ?? ($params['s'] ?? get_search_query())));
+        $searchInput = $params['q'] ?? ($params['s'] ?? get_search_query());
+        $searchQuery = is_scalar($searchInput) ? ProductSearch::clean((string) wp_unslash($searchInput)) : '';
+        if ($searchQuery !== '' && !isset($params['rs_sort'])) $sort = 'default';
         $selectedCats = $this->csvArray($params['cat'] ?? []);
         if (rs_is_wc() && function_exists('is_product_category') && is_product_category()) {
             $term = get_queried_object();
@@ -87,7 +89,7 @@ final class ShopComposer extends ViewComposer
                 'paged' => $page,
             ];
             if ($searchQuery !== '') {
-                $args['s'] = Persian::toEn($searchQuery);
+                $args['s'] = ProductSearch::normalize($searchQuery);
             }
 
             $taxQuery = [];
@@ -178,8 +180,8 @@ final class ShopComposer extends ViewComposer
             $facetArgs['posts_per_page'] = -1;
             $facetArgs['paged'] = 1;
             $facetArgs['no_found_rows'] = true;
-            $matchingIds = (new WP_Query($facetArgs))->posts;
-            $query = new WP_Query($args);
+            $matchingIds = ProductSearch::query($facetArgs, $searchQuery, $sort === 'default')->posts;
+            $query = ProductSearch::query($args, $searchQuery, $sort === 'default');
             $total = (int) $query->found_posts;
             $totalPages = max(1, (int) $query->max_num_pages);
 
@@ -199,10 +201,10 @@ final class ShopComposer extends ViewComposer
 
             $filtered = array_values(array_filter(DemoCatalog::products(), static function (array $item) use ($searchQuery, $selectedCats, $selectedBrands, $minPrice, $maxPrice, $onlySale, $onlyStock): bool {
                 if ($searchQuery !== '') {
-                    $q = Persian::normalize($searchQuery);
-                    $hay = Persian::normalize($item['title'] . ' ' . $item['cat'] . ' ' . $item['short']);
-                    if (!str_contains($hay, $q)) {
-                        return false;
+                    $q = ProductSearch::normalize($searchQuery);
+                    $hay = ProductSearch::normalize($item['title'] . ' ' . $item['cat'] . ' ' . $item['short']);
+                    foreach (array_slice(preg_split('/\s+/u', $q, -1, PREG_SPLIT_NO_EMPTY) ?: [], 0, 10) as $term) {
+                        if (!str_contains($hay, $term)) return false;
                     }
                 }
                 if ($selectedCats !== [] && !array_intersect($selectedCats, (array) ($item['cats'] ?? []))) {
@@ -225,6 +227,8 @@ final class ShopComposer extends ViewComposer
                 }
                 return true;
             }));
+
+            if (!(bool) rs_option('home.demo_fallback_when_empty', true)) $filtered = [];
 
             usort($filtered, static function (array $a, array $b) use ($sort): int {
                 return match ($sort) {

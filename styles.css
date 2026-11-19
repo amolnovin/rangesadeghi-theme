@@ -442,3 +442,9 @@ svg:not(.svg-sprite){width:24px;height:24px;fill:none;stroke:currentColor;stroke
  .mobile-toolbar>a,.mobile-toolbar>button{border-radius:12px;transition:transform .2s ease,color .2s ease,background .2s ease}.mobile-toolbar>a:active,.mobile-toolbar>button:active{transform:scale(.9);background:#fff0f0}.mobile-toolbar .active svg{transform:translateY(-2px);transition:transform .2s}
 }
 @media(prefers-reduced-motion:reduce){.mobile-toolbar>a,.mobile-toolbar>button,.mobile-drawer-nav>a{transition:none}}
+
+/* Product search suggestions */
+.search-result-item .search-result-info{display:flex;flex-direction:column;min-width:0;gap:3px}
+.search-result-item .search-result-info span{flex:none}
+.search-stock{font-size:10px;color:#43815c}.search-stock.is-out{color:#a34242}
+.search-see-all{display:block;text-align:center;padding:11px;color:var(--accent);font-size:12px;font-weight:700;border-top:1px solid #eee}

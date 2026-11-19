@@ -89,10 +89,10 @@
           <form class="search-form" action="{{ home_url('/') }}" method="get" data-search-form>
             <input type="hidden" name="post_type" value="product">
             <span class="hx-search-icon"><svg><use href="#i-search"/></svg></span>
-            <input type="search" name="s" value="{{ get_search_query() }}" placeholder="{{ $general['search_placeholder'] ?? 'جستجو در رنگ، پتینه، ابزار و شابلون…' }}" aria-label="جستجوی محصولات" autocomplete="off">
+            <input type="search" name="s" maxlength="120" value="{{ get_search_query() }}" placeholder="{{ $general['search_placeholder'] ?? 'جستجو در رنگ، پتینه، ابزار و شابلون…' }}" aria-label="جستجوی محصولات" autocomplete="off">
             <button type="submit" aria-label="جستجو"><svg><use href="#i-chevron-left"/></svg></button>
           </form>
-          <div class="search-results"></div>
+          <div class="search-results" role="status" aria-live="polite"></div>
         </div>
 
         <div class="header-tools hx-tools">
@@ -140,10 +140,10 @@
       <div class="search-box mobile-search" id="mobile-search-box" hidden>
         <form class="search-form" action="{{ home_url('/') }}" method="get" data-search-form>
           <input type="hidden" name="post_type" value="product">
-          <input type="search" name="s" value="{{ get_search_query() }}" placeholder="جستجوی محصولات" aria-label="جستجوی محصولات" autocomplete="off">
+          <input type="search" name="s" maxlength="120" value="{{ get_search_query() }}" placeholder="جستجوی محصولات" aria-label="جستجوی محصولات" autocomplete="off">
           <button type="submit" aria-label="جستجو"><svg><use href="#i-search"/></svg></button>
         </form>
-        <div class="search-results"></div>
+        <div class="search-results" role="status" aria-live="polite"></div>
       </div>
       <button class="hx-hidden-cart cart-button" type="button" aria-label="سبد خرید"><svg><use href="#i-bag"/></svg><span class="cart-count">{{ $cartCountFa }}</span></button>
     </div>

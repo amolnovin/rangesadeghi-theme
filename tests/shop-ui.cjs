@@ -45,6 +45,19 @@ function setup(html, url = 'https://example.test/shop/') {
     assert.equal(body.get('action'),'rs_home_newsletter_subscribe'); assert.equal(body.get('contact'),'home@example.test'); dom.window.close();
   }
   {
+    const {dom,w}=setup(`<div class="search-box"><form data-search-form><input type="search" name="s"></form><div class="search-results"></div></div>`);
+    const requests=[]; w.fetch=(url)=>new Promise(resolve=>requests.push({url,resolve})); w.eval(script);
+    const input=w.document.querySelector('input'), box=w.document.querySelector('.search-box'), results=w.document.querySelector('.search-results');
+    input.value='old'; input.dispatchEvent(new w.Event('focus')); assert.equal(requests.length,1);
+    input.value='new'; input.dispatchEvent(new w.Event('focus')); assert.equal(requests.length,2);
+    const payload=(title)=>({success:true,data:{count_fa:'۱',search_url:'/search',items:[{url:'/p',image:'/i',title,price_formatted:'۱۰۰ تومان',stock_label:'ناموجود',in_stock:false}]}});
+    requests[1].resolve({json:async()=>payload('new title')}); await tick(); await tick();
+    assert(results.textContent.includes('new title')); assert(results.textContent.includes('ناموجود')); assert(results.querySelector('.search-see-all'));
+    requests[0].resolve({json:async()=>payload('old title')}); await tick(); await tick();
+    assert(!results.textContent.includes('old title'), 'Stale response replaced newer search');
+    input.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Escape',bubbles:true})); assert(!box.classList.contains('open')); dom.window.close();
+  }
+  {
     const {dom,w}=setup(`<form id="login-form"><input id="mobile-number" value="admin"><input id="modal-password" value="secret"><input name="wpmc_token" value="token"><input name="wpmc_answer" value="5"><button class="wpmc-refresh" type="button"></button></form>`);
     let refresh=0, body; w.fetch=async (url,opts) => {body=opts.body; return {json:async()=>({success:false,data:{message:'bad'}})};};
     w.document.querySelector('.wpmc-refresh').addEventListener('click',()=>refresh++); w.eval(script);
