@@ -14,9 +14,21 @@ jobs:
       - uses: actions/checkout@v4
       - name: Test checkout layout in Chromium
         run: |
+          set -euo pipefail
+          exec > >(tee "$RUNNER_TEMP/rs-browser.log") 2>&1
           npm install --no-save --no-package-lock playwright@1.56.1
           npx playwright install --with-deps chromium
           node tests/checkout-mobile.cjs
+      - name: Report browser test failure
+        if: failure()
+        run: |
+          python3 - <<'PYERROR'
+          import os
+          from pathlib import Path
+          path = Path(os.environ['RUNNER_TEMP']) / 'rs-browser.log'
+          message = path.read_text(errors='replace')[-3500:] if path.exists() else 'No browser log'
+          print('::error::' + message.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A'))
+          PYERROR
 
   integration:
     runs-on: ubuntu-latest
