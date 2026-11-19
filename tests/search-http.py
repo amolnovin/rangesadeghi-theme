@@ -46,7 +46,7 @@ with tempfile.TemporaryFile(mode='w+t') as log:
         assert ajax['success'] and len(ajax['data']['items']) == 4, 'Live search fixture not found'
         for logged_in in (False, True):
             html = search('پاستیل', cookie=logged_in)
-            assert '<html' in html.lower() and 'id="shop-grid"' in html and 'رنگ پاستیلی' in html, 'Product search page did not render'
+            assert '<html' in html.lower() and 'id="shop-grid"' in html and 'رنگ پاستیلی' in html, f'Product search page did not render: length={len(html)}, html_tag={"<html" in html.lower()}, grid={"id=shop-grid" in html}, text={"رنگ پاستیلی" in html}, start={html[:300]!r}'
             assert html.count('class="product-card"') == 3, 'First page contains wrong number of results'
             if logged_in:
                 assert 'wp-admin-bar-my-account' in html, 'Authenticated request was not logged in'
