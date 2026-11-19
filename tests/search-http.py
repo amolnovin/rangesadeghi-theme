@@ -2,6 +2,7 @@
 """Exercise front-end and AJAX search through WordPress, including authenticated requests."""
 import http.client
 import json
+import re
 import socket
 import subprocess
 import sys
@@ -44,6 +45,22 @@ with tempfile.TemporaryFile(mode='w+t') as log:
             raise RuntimeError('PHP server did not start')
         ajax = json.loads(request('/wp-admin/admin-ajax.php?' + urllib.parse.urlencode({'action': 'rs_live_search', 'q': 'پاستیل'})))
         assert ajax['success'] and len(ajax['data']['items']) == 4, 'Live search fixture not found'
+        def live(q):
+            return json.loads(request('/wp-admin/admin-ajax.php?' + urllib.parse.urlencode({'action': 'rs_live_search', 'q': q})))['data']
+        arabic = live('اکریلیک 120')
+        assert arabic['total'] == 1 and int(arabic['items'][0]['id']) == data['variant_id'], f'Persian and Arabic search variants failed: {arabic}'
+        assert arabic['items'][0]['stock_label'] == 'ناموجود' and not arabic['items'][0]['in_stock'], 'Stock status missing from live search'
+        for term in ('اكريليك ۱۲۰', 'اکریلیک ١٢٠', 'اکریلیک 120'):
+            page = search(term)
+            assert 'id="shop-grid"' in page and 'اكريليك' in page, f'Full search did not normalize {term}'
+        bulk = live('انبوه')
+        assert bulk['total'] == 9 and len(bulk['items']) == 7, f'Total results or live result limit incorrect: {bulk}'
+        assert not {data['hidden_id'], data['catalog_id'], data['draft_id']} & {int(item['id']) for item in bulk['items']}, 'Private or search-hidden item leaked'
+        bulk_page = search('انبوه')
+        ids_on_page = re.findall(r'<article class="product-card"\s+data-product-id="(\d+)"', bulk_page)
+        assert ids_on_page == [item['id'] for item in bulk['items'][:3]], f'Live search and full-page ordering disagree: {ids_on_page}'
+        assert all(str(data[name]) not in ids_on_page for name in ('hidden_id', 'catalog_id', 'draft_id')), 'Search-hidden item on page'
+        assert live("' OR 1=1 %_")['total'] == 0, 'Search wildcard or SQL injection changed query'
         for logged_in in (False, True):
             html = search('پاستیل', cookie=logged_in)
             assert '<html' in html.lower() and 'id="shop-grid"' in html and 'رنگ پاستیلی' in html, f'Product search page missing: length={len(html)}'

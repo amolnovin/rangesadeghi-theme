@@ -8,7 +8,7 @@ use App\Core\ServiceProvider;
 use App\Support\DemoCatalog;
 use App\Support\Persian;
 use App\Support\ProductPresenter;
-use WP_Query;
+use App\Support\ProductSearch;
 
 final class ThemeServiceProvider extends ServiceProvider
 {
@@ -17,6 +17,8 @@ final class ThemeServiceProvider extends ServiceProvider
         add_action('after_setup_theme', [$this, 'setupTheme']);
         add_action('init', [$this, 'registerBrandTaxonomy'], 5);
         add_filter('body_class', [$this, 'filterBodyClasses']);
+        add_filter('posts_search', [ProductSearch::class, 'filterSearch'], 100, 2);
+        add_filter('posts_orderby', [ProductSearch::class, 'filterOrder'], 100, 2);
 
         // AJAX عمومی (جستجوی زنده، خبرنامه، فرم تماس، مودال ورود)
         $ajaxActions = [
@@ -145,78 +147,57 @@ final class ThemeServiceProvider extends ServiceProvider
      */
     public function ajaxLiveSearch(): void
     {
-        $rawQuery = isset($_GET['q']) ? sanitize_text_field((string) wp_unslash($_GET['q'])) : '';
-        $normalized = Persian::normalize($rawQuery);
-
-        if ($normalized === '') {
-            wp_send_json_success(['items' => [], 'total' => 0]);
-        }
+        $rawQuery = isset($_GET['q']) && is_scalar($_GET['q']) ? ProductSearch::clean((string) wp_unslash($_GET['q'])) : '';
+        $normalized = ProductSearch::normalize($rawQuery);
+        if ($normalized === '') wp_send_json_success(['items' => [], 'total' => 0, 'count_fa' => rs_fa(0)]);
 
         $items = [];
-
+        $total = 0;
         if (rs_is_wc()) {
-            $query = new WP_Query([
-                'post_type' => 'product',
-                'post_status' => 'publish',
-                's' => Persian::toEn($rawQuery),
-                'posts_per_page' => 7,
-                'no_found_rows' => true,
-            ]);
-
-            // اگر با ارقام لاتین پیدا نشد، با ارقام فارسی نیز بررسی شود
-            if (!$query->have_posts() && Persian::toFa($rawQuery) !== Persian::toEn($rawQuery)) {
-                $query = new WP_Query([
-                    'post_type' => 'product',
-                    'post_status' => 'publish',
-                    's' => Persian::toFa($rawQuery),
-                    'posts_per_page' => 7,
-                    'no_found_rows' => true,
-                ]);
-            }
-
+            $query = ProductSearch::query([
+                'post_type' => 'product', 'post_status' => 'publish', 'posts_per_page' => 7,
+            ], $rawQuery);
+            $total = (int) $query->found_posts;
             foreach ($query->posts as $post) {
                 $product = wc_get_product($post->ID);
-                if (!$product) {
-                    continue;
-                }
-                $vm = ProductPresenter::fromWcProduct($product);
+                if (!$product) continue;
+                $image = wp_get_attachment_image_url($product->get_image_id(), 'woocommerce_thumbnail');
+                $price = $product->get_price();
+                $available = $product->is_in_stock();
+                $consent = $this->app->make(WooCommerceServiceProvider::class)->productConsentText($product->get_id());
                 $items[] = [
-                    'id' => $vm['id'],
-                    'title' => $vm['title'],
-                    'url' => $vm['url'],
-                    'image' => $vm['image'],
-                    'price_formatted' => rs_price($vm['price']) . ' تومان',
+                    'id' => (string) $product->get_id(),
+                    'title' => $product->get_name(),
+                    'url' => $product->get_permalink(),
+                    'image' => $image ?: wc_placeholder_img_src('woocommerce_thumbnail'),
+                    'price_formatted' => $price === '' ? 'تماس بگیرید' : rs_price($price) . ' تومان',
+                    'stock_label' => !$available ? 'ناموجود' : ($consent !== '' ? 'نیازمند آماده‌سازی' : 'موجود در انبار'),
+                    'in_stock' => $available,
                 ];
             }
         }
 
-        // اگر فروشگاه هنوز محصولی نداشت و فالبک دمو روشن بود
-        if ($items === [] && (bool) rs_option('home.demo_fallback_when_empty', true)) {
+        if (!$items && (bool) rs_option('home.demo_fallback_when_empty', true)) {
             $wcCount = post_type_exists('product') ? (int) (wp_count_posts('product')->publish ?? 0) : 0;
             if ($wcCount === 0) {
                 foreach (DemoCatalog::products() as $demo) {
-                    $haystack = Persian::normalize($demo['title'] . ' ' . ($demo['cat'] ?? '') . ' ' . ($demo['short'] ?? ''));
-                    if (str_contains($haystack, $normalized)) {
-                        $vm = ProductPresenter::fromDemoArray($demo);
-                        $items[] = [
-                            'id' => $vm['id'],
-                            'title' => rs_fa($vm['title']),
-                            'url' => $vm['url'],
-                            'image' => $vm['image'],
-                            'price_formatted' => rs_price($vm['price']) . ' تومان',
-                        ];
-                        if (count($items) >= 7) {
-                            break;
-                        }
-                    }
+                    $haystack = ProductSearch::normalize($demo['title'] . ' ' . ($demo['cat'] ?? '') . ' ' . ($demo['short'] ?? ''));
+                    $terms = array_slice(preg_split('/\s+/u', $normalized, -1, PREG_SPLIT_NO_EMPTY) ?: [], 0, 10);
+                    if (count(array_filter($terms, static fn($term) => str_contains($haystack, $term))) !== count($terms)) continue;
+                    $total++;
+                    if (count($items) >= 7) continue;
+                    $vm = ProductPresenter::fromDemoArray($demo);
+                    $items[] = [
+                        'id' => $vm['id'], 'title' => rs_fa($vm['title']), 'url' => $vm['url'], 'image' => $vm['image'],
+                        'price_formatted' => rs_price($vm['price']) . ' تومان',
+                        'stock_label' => $vm['in_stock'] ? 'موجود در انبار' : 'ناموجود', 'in_stock' => $vm['in_stock'],
+                    ];
                 }
             }
         }
 
         wp_send_json_success([
-            'items' => $items,
-            'total' => count($items),
-            'count_fa' => rs_fa(count($items)),
+            'items' => $items, 'total' => $total, 'count_fa' => rs_fa($total),
             'search_url' => add_query_arg(['s' => $rawQuery, 'post_type' => 'product'], home_url('/')),
         ]);
     }

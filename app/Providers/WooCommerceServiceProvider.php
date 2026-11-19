@@ -8,6 +8,7 @@ use App\Core\ServiceProvider;
 use App\Support\DemoCatalog;
 use App\Support\Persian;
 use App\Support\ProductPresenter;
+use App\Support\ProductSearch;
 use WC_Order;
 use WP_Query;
 
@@ -291,6 +292,10 @@ final class WooCommerceServiceProvider extends ServiceProvider
         }
         if ($metaQuery !== []) {
             $query->set('meta_query', $metaQuery);
+        }
+        if ($query->is_search() && $query->get('post_type') === 'product') {
+            $search = $query->get('s');
+            if (is_scalar($search)) ProductSearch::apply($query, (string) $search, empty($_GET['rs_sort']) || $sort === 'default');
         }
     }
 

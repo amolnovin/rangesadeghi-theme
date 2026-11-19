@@ -237,6 +237,7 @@
       if (!box || !input || !results) return;
 
       let debounceId = null;
+      let requestId = 0;
 
       const renderPopular = () => {
         results.innerHTML = `<div class="search-result-title">درخواست‌های محبوب</div><div class="popular-searches">${
@@ -247,26 +248,35 @@
 
       const runQuery = async () => {
         const q = input.value.trim();
+        const current = ++requestId;
         if (!q) { renderPopular(); return; }
+        results.innerHTML = '<div class="search-empty">در حال جستجو…</div>';
+        box.classList.add('open');
         try {
           const res = await wpAjax('rs_live_search', { q }, 'GET');
-          const items = res?.data?.items || [];
+          if (current !== requestId || input.value.trim() !== q) return;
+          if (!res?.success) throw new Error('search failed');
+          const items = res.data?.items || [];
           if (items.length) {
-            results.innerHTML = `<div class="search-result-title">${res.data.count_fa} نتیجه برای «${escapeHtml(q)}»</div>` +
-              items.map(item => `<a class="search-result-item" href="${escapeHtml(item.url)}"><img src="${escapeHtml(item.image)}" alt=""><span>${escapeHtml(item.title)}</span><strong>${escapeHtml(item.price_formatted)}</strong></a>`).join('');
+            results.innerHTML = `<div class="search-result-title">${escapeHtml(res.data.count_fa)} نتیجه برای «${escapeHtml(q)}»</div>` +
+              items.map(item => `<a class="search-result-item" href="${escapeHtml(item.url)}"><img src="${escapeHtml(item.image)}" alt=""><span class="search-result-info"><span>${escapeHtml(item.title)}</span><small class="search-stock ${item.in_stock ? '' : 'is-out'}">${escapeHtml(item.stock_label || '')}</small></span><strong>${escapeHtml(item.price_formatted)}</strong></a>`).join('') +
+              `<a class="search-see-all" href="${escapeHtml(res.data.search_url)}">مشاهده همه نتایج</a>`;
           } else {
             results.innerHTML = '<div class="search-empty">محصولی با این عبارت پیدا نشد.</div>';
           }
-          box.classList.add('open');
         } catch {
-          /* نادیده‌گرفتن خطای شبکه در جستجوی زنده */
+          if (current === requestId && input.value.trim() === q) results.innerHTML = '<div class="search-empty">جستجوی زنده در دسترس نیست؛ برای مشاهده نتایج دکمه جستجو را بزنید.</div>';
         }
       };
 
       input.addEventListener('focus', () => { if (!input.value.trim()) renderPopular(); else runQuery(); });
       input.addEventListener('input', () => {
+        ++requestId;
         clearTimeout(debounceId);
         debounceId = setTimeout(runQuery, 240);
+      });
+      input.addEventListener('keydown', event => {
+        if (event.key === 'Escape') { ++requestId; clearTimeout(debounceId); box.classList.remove('open'); }
       });
     });
   }
