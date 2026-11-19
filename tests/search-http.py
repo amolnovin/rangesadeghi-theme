@@ -62,12 +62,13 @@ with tempfile.TemporaryFile(mode='w+t') as log:
         blog = request('/?' + urllib.parse.urlencode({'s': 'مقاله جستجوی آزمایشی'}))
         assert '<main' in blog and 'مقاله جستجوی آزمایشی' in blog, 'Post search did not render'
         print('HTTP product search (guest/admin, AJAX, pagination, single, zero) and post search passed.')
-    except Exception:
+    except Exception as exc:
         log.seek(0)
         server_log = log.read()
         print('\n'.join(line for line in server_log.splitlines() if 'RSDBG' in line), file=sys.stderr)
         print(server_log[-12000:], file=sys.stderr)
-        raise
+        debug = '; '.join(line.split('RSDBG ', 1)[1] for line in server_log.splitlines() if 'RSDBG ' in line)
+        raise AssertionError(f'{exc} TRACE={debug[-1200:]}') from None
     finally:
         server.terminate()
         try:
