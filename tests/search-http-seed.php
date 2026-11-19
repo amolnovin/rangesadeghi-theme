@@ -1,9 +1,5 @@
 <?php
 /** Create isolated products and an authenticated visitor for front-end search tests. */
-$mu = WP_CONTENT_DIR . '/mu-plugins';
-if (!is_dir($mu)) mkdir($mu);
-file_put_contents($mu . '/rs-search-debug.php', "<?php add_filter('template_include', function (\$template) { header('X-Rs-Template: ' . basename(\$template)); return \$template; }, 9999);
-");
 $ids = [];
 foreach (['رنگ پاستیلی قرمز', 'رنگ پاستیلی آبی', 'رنگ پاستیلی سبز', 'رنگ پاستیلی بنفش', 'کالای یکتای جستجو'] as $title) {
     $product = new WC_Product_Simple();
