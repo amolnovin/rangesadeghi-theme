@@ -22,6 +22,8 @@ with tempfile.TemporaryFile(mode='w+t') as log:
         response = conn.getresponse()
         body = response.read().decode('utf-8', errors='replace')
         status, location = response.status, response.getheader('Location')
+        global template
+        template = response.getheader('X-Rs-Template')
         conn.close()
         assert status == 200, f'{path} status {status} location={location}, body={body[:500]}'
         return body
@@ -46,7 +48,7 @@ with tempfile.TemporaryFile(mode='w+t') as log:
         assert ajax['success'] and len(ajax['data']['items']) == 4, 'Live search fixture not found'
         for logged_in in (False, True):
             html = search('پاستیل', cookie=logged_in)
-            assert '<html' in html.lower() and 'id="shop-grid"' in html and 'رنگ پاستیلی' in html, f'Product search page did not render: length={len(html)}, html_tag={"<html" in html.lower()}, grid={"id=shop-grid" in html}, text={"رنگ پاستیلی" in html}, main={html[html.find('<main'):html.find('<main')+500]!r}, grid_index={html.find('shop-grid')}'
+            assert '<html' in html.lower() and 'id="shop-grid"' in html and 'رنگ پاستیلی' in html, f'Product search page did not render: length={len(html)}, html_tag={"<html" in html.lower()}, grid={"id=shop-grid" in html}, text={"رنگ پاستیلی" in html}, main={html[html.find('<main'):html.find('<main')+500]!r}, grid_index={html.find('shop-grid')}, template={template}, body={html[html.find('<body'):html.find('<body')+240]!r}, footer={html.find('<footer')}, end={html[-120:]!r}'
             assert html.count('class="product-card"') == 3, 'First page contains wrong number of results'
             if logged_in:
                 assert 'wp-admin-bar-my-account' in html, 'Authenticated request was not logged in'
@@ -62,7 +64,9 @@ with tempfile.TemporaryFile(mode='w+t') as log:
         print('HTTP product search (guest/admin, AJAX, pagination, single, zero) and post search passed.')
     except Exception:
         log.seek(0)
-        print(log.read()[-12000:], file=sys.stderr)
+        server_log = log.read()
+        print('\n'.join(line for line in server_log.splitlines() if 'RSDBG' in line), file=sys.stderr)
+        print(server_log[-12000:], file=sys.stderr)
         raise
     finally:
         server.terminate()

@@ -59,6 +59,7 @@ final class Blade
      */
     public function render(string $view, array $data = []): string
     {
+        error_log("RSDBG render " . $view);
         return $this->renderInternal($view, $data, true);
     }
 
@@ -152,10 +153,12 @@ final class Blade
 
         $name = array_pop($this->sectionStack);
         $this->sections[$name] = (string) ob_get_clean();
+        error_log('RSDBG stop ' . $name . ' bytes=' . strlen($this->sections[$name]));
     }
 
     public function yieldContent(string $name, string $default = ''): string
     {
+        error_log('RSDBG yield ' . $name . ' bytes=' . strlen($this->sections[$name] ?? ''));
         return $this->sections[$name] ?? $default;
     }
 
