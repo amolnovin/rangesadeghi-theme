@@ -22,8 +22,6 @@ with tempfile.TemporaryFile(mode='w+t') as log:
         response = conn.getresponse()
         body = response.read().decode('utf-8', errors='replace')
         status, location = response.status, response.getheader('Location')
-        global template
-        template = response.getheader('X-Rs-Template')
         conn.close()
         assert status == 200, f'{path} status {status} location={location}, body={body[:500]}'
         return body
@@ -48,7 +46,7 @@ with tempfile.TemporaryFile(mode='w+t') as log:
         assert ajax['success'] and len(ajax['data']['items']) == 4, 'Live search fixture not found'
         for logged_in in (False, True):
             html = search('پاستیل', cookie=logged_in)
-            assert '<html' in html.lower() and 'id="shop-grid"' in html and 'رنگ پاستیلی' in html, f"Search content missing: before_footer={html[html.find('<footer')-800:html.find('<footer')]!r}"
+            assert '<html' in html.lower() and 'id="shop-grid"' in html and 'رنگ پاستیلی' in html, f'Product search page missing: length={len(html)}'
             assert html.count('class="product-card"') == 3, 'First page contains wrong number of results'
             if logged_in:
                 assert 'wp-admin-bar-my-account' in html, 'Authenticated request was not logged in'
@@ -62,13 +60,10 @@ with tempfile.TemporaryFile(mode='w+t') as log:
         blog = request('/?' + urllib.parse.urlencode({'s': 'مقاله جستجوی آزمایشی'}))
         assert '<main' in blog and 'مقاله جستجوی آزمایشی' in blog, 'Post search did not render'
         print('HTTP product search (guest/admin, AJAX, pagination, single, zero) and post search passed.')
-    except Exception as exc:
+    except Exception:
         log.seek(0)
-        server_log = log.read()
-        print('\n'.join(line for line in server_log.splitlines() if 'RSDBG' in line), file=sys.stderr)
-        print(server_log[-12000:], file=sys.stderr)
-        debug = '; '.join(line.split('RSDBG ', 1)[1] for line in server_log.splitlines() if 'RSDBG ' in line)
-        raise AssertionError(f'{exc} TRACE={debug[-1200:]}') from None
+        print(log.read()[-12000:], file=sys.stderr)
+        raise
     finally:
         server.terminate()
         try:

@@ -1,5 +1,7 @@
 <?php
 /** Create isolated products and an authenticated visitor for front-end search tests. */
+// Fresh WooCommerce installs default to a coming-soon screen for guests.
+update_option('woocommerce_coming_soon', 'no');
 $ids = [];
 foreach (['رنگ پاستیلی قرمز', 'رنگ پاستیلی آبی', 'رنگ پاستیلی سبز', 'رنگ پاستیلی بنفش', 'کالای یکتای جستجو'] as $title) {
     $product = new WC_Product_Simple();
