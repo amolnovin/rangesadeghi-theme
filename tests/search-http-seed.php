@@ -13,6 +13,8 @@ foreach (['رنگ پاستیلی قرمز', 'رنگ پاستیلی آبی', 'ر�
 }
 $variant = new WC_Product_Simple();
 $variant->set_name('رنگ اكريليك ١٢٠'); $variant->set_regular_price('150'); $variant->set_status('publish'); $variant->set_stock_status('outofstock'); $variant->save();
+$phrase = new WC_Product_Simple(); $phrase->set_name('رنگ نیم‌مات ویژه'); $phrase->set_status('publish'); $phrase->set_regular_price('100'); $phrase->save();
+$lessRelevant = new WC_Product_Simple(); $lessRelevant->set_name('نیم ویژه مات'); $lessRelevant->set_status('publish'); $lessRelevant->set_regular_price('100'); $lessRelevant->save();
 for ($i = 0; $i < 9; $i++) {
     $bulk = new WC_Product_Simple(); $bulk->set_name('رنگ انبوه ' . $i); $bulk->set_status('publish'); $bulk->set_regular_price((string) (100 + $i)); $bulk->save();
 }
@@ -23,4 +25,4 @@ $postId = wp_insert_post(['post_title' => 'مقاله جستجوی آزمایش�
 rs_app('options')->update(['shop' => ['per_page' => 3, 'pagination_mode' => 'numbers']]);
 $user = get_user_by('login', 'admin');
 $cookie = wp_generate_auth_cookie($user->ID, time() + HOUR_IN_SECONDS, 'logged_in');
-echo 'RSSEARCH:' . wp_json_encode(['cookie_name' => LOGGED_IN_COOKIE, 'cookie' => $cookie, 'ids' => $ids, 'post_id' => $postId, 'variant_id' => $variant->get_id(), 'hidden_id' => $hidden->get_id(), 'catalog_id' => $catalogOnly->get_id(), 'draft_id' => $draft->get_id()]) . "\n";
+echo 'RSSEARCH:' . wp_json_encode(['cookie_name' => LOGGED_IN_COOKIE, 'cookie' => $cookie, 'ids' => $ids, 'post_id' => $postId, 'variant_id' => $variant->get_id(), 'phrase_id' => $phrase->get_id(), 'hidden_id' => $hidden->get_id(), 'catalog_id' => $catalogOnly->get_id(), 'draft_id' => $draft->get_id()]) . "\n";

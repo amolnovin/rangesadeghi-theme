@@ -61,6 +61,7 @@ jobs:
           SEARCH_FIXTURE="$(wp eval-file "$GITHUB_WORKSPACE/tests/search-http-seed.php" | sed -n 's/^RSSEARCH://p' | tail -1)"
           test -n "$SEARCH_FIXTURE"
           python3 "$GITHUB_WORKSPACE/tests/search-http.py" "$RUNNER_TEMP/wp" "$SEARCH_FIXTURE"
+          wp eval-file "$GITHUB_WORKSPACE/tests/search-visibility.php"
           mkdir -p "$RUNNER_TEMP/rs-patch-test/theme" "$RUNNER_TEMP/rs-patch-release"
           git -C "$GITHUB_WORKSPACE" archive 681a13b988de1c2be4dd880e4f058b99a2bb0ebe | tar -x -C "$RUNNER_TEMP/rs-patch-test/theme"
           python3 "$GITHUB_WORKSPACE/tools/make-patch.py" --from 681a13b988de1c2be4dd880e4f058b99a2bb0ebe --to "$GITHUB_SHA" --min-version 2.2.13 --version 2.2.14 --out-dir "$RUNNER_TEMP/rs-patch-release"

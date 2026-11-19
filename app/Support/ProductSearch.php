@@ -65,6 +65,8 @@ final class ProductSearch
     private static function normalizedColumn(string $column, string $search): string
     {
         global $wpdb;
+        // A half-space in stored titles should behave like a space for phrase ranking.
+        if (str_contains($search, ' ')) $column = $wpdb->prepare("REPLACE($column, %s, %s)", "\u{200C}", ' ');
         // Only normalize variants actually needed by this query to reduce database work.
         foreach (self::VARIANTS as $canonical => $variants) {
             if (!str_contains($search, (string) $canonical)) continue;

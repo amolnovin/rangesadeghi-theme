@@ -53,6 +53,10 @@ with tempfile.TemporaryFile(mode='w+t') as log:
         for term in ('اكريليك ۱۲۰', 'اکریلیک ١٢٠', 'اکریلیک 120'):
             page = search(term)
             assert 'id="shop-grid"' in page and 'اكريليك' in page, f'Full search did not normalize {term}'
+        for term in ('نیم مات', 'نیم‌مات'):
+            phrase = live(term)
+            assert phrase['total'] == 2 and int(phrase['items'][0]['id']) == data['phrase_id'], f'Half-space or phrase ranking failed: {phrase}'
+            assert 'نیم‌مات' in search(term), 'Full search failed for half-space'
         bulk = live('انبوه')
         assert bulk['total'] == 9 and len(bulk['items']) == 7, f'Total results or live result limit incorrect: {bulk}'
         assert not {data['hidden_id'], data['catalog_id'], data['draft_id']} & {int(item['id']) for item in bulk['items']}, 'Private or search-hidden item leaked'
