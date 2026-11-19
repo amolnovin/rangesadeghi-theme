@@ -50,17 +50,17 @@ if (!$checkout->is_registration_enabled() && $checkout->is_registration_required
             ?>
             <div class="co-card rs-delivery-card" data-rs-slot-card hidden><header class="co-card-head"><span class="co-card-icon"><svg><use href="#i-calendar"/></svg></span><div class="co-card-title"><h2>زمان تحویل</h2><p>روز و بازه پیشنهادی را انتخاب کنید؛ زمان نهایی پس از تأیید فروشگاه است.</p><p data-rs-pickup-address hidden><?php echo esc_html((string) rs_option('shop.pickup_address', '')); ?></p></div></header>
                 <div class="co-days" role="radiogroup" aria-label="روز تحویل"><?php
-                    // Render enough future days for pickup even when Friday is excluded.
-                    $pickupCount = 0;
-                    for ($i = 0; $i < $days || $pickupCount < $days; $i++) :
-                        $date = $today->modify('+' . $i . ' days'); $value = $date->format('Y-m-d');
-                        $pickupDay = $date->format('N') !== '5' && $pickupCount < $days;
-                        if ($pickupDay) $pickupCount++;
+                    // Both scheduled methods offer the configured number of open days.
+                    $openDays = 0;
+                    for ($i = 0; $openDays < $days; $i++) :
+                        $date = $today->modify('+' . $i . ' days');
+                        if ($date->format('N') === '5') continue;
+                        $openDays++; $value = $date->format('Y-m-d');
                     ?>
-                    <label class="co-day" data-rs-courier-day="<?php echo $i < $days ? '1' : '0'; ?>" data-rs-pickup-day="<?php echo $pickupDay ? '1' : '0'; ?>"><input type="radio" name="rs_delivery_day" value="<?php echo esc_attr($value); ?>" <?php checked($postedDay, $value); ?> /><b><?php echo $i === 0 ? 'امروز' : ($i === 1 ? 'فردا' : esc_html(wp_date('l', $date->getTimestamp()))); ?></b><small><?php echo esc_html(\App\Support\Persian::jalaliDate($date->setTime(12, 0)->getTimestamp())); ?></small></label>
+                    <label class="co-day" data-rs-courier-day="1" data-rs-pickup-day="1"><input type="radio" name="rs_delivery_day" value="<?php echo esc_attr($value); ?>" <?php checked($postedDay, $value); ?> /><b><?php echo $i === 0 ? 'امروز' : ($i === 1 ? 'فردا' : esc_html(wp_date('l', $date->getTimestamp()))); ?></b><small><?php echo esc_html(\App\Support\Persian::jalaliDate($date->setTime(12, 0)->getTimestamp())); ?></small></label>
                 <?php endfor; ?></div>
                 <div class="co-slots" role="radiogroup" aria-label="بازه زمانی تحویل"><?php foreach (array_filter(array_map('trim', explode(',', (string) rs_option('shop.delivery_slots', '')))) as $slot) : ?>
-                    <label class="co-slot"><input type="radio" name="rs_delivery_slot" value="<?php echo esc_attr($slot); ?>" <?php checked($postedSlot, $slot); ?> /><svg><use href="#i-clock"/></svg><?php echo esc_html($slot); ?></label>
+                    <label class="co-slot"><input type="radio" name="rs_delivery_slot" value="<?php echo esc_attr($slot); ?>" <?php checked($postedSlot, $slot); ?> /><svg><use href="#i-clock"/></svg><?php echo esc_html(rs_fa($slot)); ?></label>
                 <?php endforeach; ?></div>
             </div><?php endif; ?>
             <div class="co-card co-eta-card" data-rs-eta-card hidden><span class="co-card-icon"><svg><use href="#i-clock"/></svg></span><div><b>زمان تقریبی تحویل</b><p data-rs-eta-text></p></div></div>

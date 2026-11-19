@@ -1,11 +1,11 @@
 <?php
-/** Verify the release delta ZIP/JSON against an isolated 2.2.14 theme and rollback. */
+/** Verify the release delta ZIP/JSON against an isolated 2.2.15 theme and rollback. */
 declare(strict_types=1);
 $root = getenv('RS_PATCH_TEST_DIR');
 $patchDir = getenv('RS_PATCH_RELEASE_DIR');
 if (!$root || !is_dir($root . '/theme') || !$patchDir) throw new RuntimeException('Missing patch fixtures');
-$manifest = json_decode((string) file_get_contents($patchDir . '/rangesadeghi-patch-2.2.15.json'), true);
-if (!is_array($manifest) || ($manifest['min_version'] ?? '') !== '2.2.14' || ($manifest['target_version'] ?? '') !== '2.2.15') throw new RuntimeException('Invalid release manifest');
+$manifest = json_decode((string) file_get_contents($patchDir . '/rangesadeghi-patch-2.2.16.json'), true);
+if (!is_array($manifest) || ($manifest['min_version'] ?? '') !== '2.2.15' || ($manifest['target_version'] ?? '') !== '2.2.16') throw new RuntimeException('Invalid release manifest');
 $before = [];
 foreach ($manifest['files'] as $rel => $entry) $before[$rel] = is_file($root . '/theme/' . $rel) ? file_get_contents($root . '/theme/' . $rel) : null;
 $blade = rs_app('blade'); $options = rs_app('options');
@@ -13,7 +13,7 @@ $app = new App\Core\Application($root . '/theme', '');
 $app->instance('blade', $blade); $app->instance('options', $options);
 $manager = new App\Updater\PatchManager($app);
 foreach (['zip', 'json'] as $ext) {
-    $result = $manager->applyPatchFile($patchDir . '/rangesadeghi-patch-2.2.15.' . $ext);
+    $result = $manager->applyPatchFile($patchDir . '/rangesadeghi-patch-2.2.16.' . $ext);
     if (empty($result['ok'])) throw new RuntimeException("Release $ext apply failed: " . ($result['message'] ?? ''));
     if (($result['changed_count'] ?? 0) !== count($manifest['files'])) throw new RuntimeException('Wrong number of patched files');
     foreach ($manifest['files'] as $rel => $entry) {

@@ -269,3 +269,26 @@ body.admin-bar .main-header.is-sticky {
   .rs-print-invoice .rs-invoice-totals div { display:flex; justify-content:space-between; gap:15px; padding:5px; border-bottom:1px solid #ddd; }
   .rs-print-invoice footer { margin-top:24px; border-top:1px solid #bbb; padding-top:12px; }
 }
+
+/* Checkout integrations: contain intrinsic widths without clipping the page or controls. */
+.rs-native-checkout .co-main,
+.rs-native-checkout .co-step,
+.rs-native-checkout #order_review,
+.rs-native-checkout #payment,
+.rs-native-checkout [data-rs-shipping-extra],
+.rs-native-checkout [data-rs-payment-extra],
+.rs-native-checkout .cart-side { min-width: 0; max-width: 100%; }
+.rs-native-checkout [data-rs-shipping-extra],
+.rs-native-checkout [data-rs-payment-extra] { grid-template-columns: minmax(0, 1fr); }
+.rs-native-checkout .woocommerce-shipping-methods label { min-width: 0; overflow-wrap: anywhere; }
+.rs-native-checkout.rs-steps-enabled:not([data-rs-step="payment"]) .amol-wallet-checkout-box,
+.rs-native-checkout.rs-steps-enabled:not([data-rs-step="payment"]) .amol-wallet-payment-row { display: none !important; }
+.rs-native-checkout .amol-wallet-checkout-box { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+.rs-native-checkout .amol-progress-text { flex-wrap: wrap; gap: 4px 12px; }
+@media (max-width: 1024px) {
+  .rs-native-checkout { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 768px) {
+  .page-checkout .rs-checkout-steps .co-step-btn b { white-space: normal; overflow-wrap: anywhere; }
+  .rs-native-checkout .co-days { grid-template-columns: repeat(auto-fit, minmax(min(100%, 80px), 1fr)); grid-auto-flow: row; grid-auto-columns: auto; overflow: visible; margin-inline: 0; padding: 2px 0 4px; }
+}

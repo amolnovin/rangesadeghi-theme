@@ -8,6 +8,16 @@ permissions:
   contents: read
 
 jobs:
+  mobile-checkout:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test checkout layout in Chromium
+        run: |
+          npm install --no-save --no-package-lock playwright@1.56.1
+          npx playwright install --with-deps chromium
+          node tests/checkout-mobile.cjs
+
   integration:
     runs-on: ubuntu-latest
     strategy:
@@ -64,8 +74,8 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tests/search-http.py" "$RUNNER_TEMP/wp" "$SEARCH_FIXTURE"
           wp eval-file "$GITHUB_WORKSPACE/tests/search-visibility.php"
           mkdir -p "$RUNNER_TEMP/rs-patch-test/theme" "$RUNNER_TEMP/rs-patch-release"
-          git -C "$GITHUB_WORKSPACE" archive dd2def4292203003dc1dc2ace115dee6a153346e | tar -x -C "$RUNNER_TEMP/rs-patch-test/theme"
-          python3 "$GITHUB_WORKSPACE/tools/make-patch.py" --from dd2def4292203003dc1dc2ace115dee6a153346e --to "$GITHUB_SHA" --min-version 2.2.14 --version 2.2.15 --out-dir "$RUNNER_TEMP/rs-patch-release"
+          git -C "$GITHUB_WORKSPACE" archive 70b8caf58f64e99b9bef138bb3b416be17215ec1 | tar -x -C "$RUNNER_TEMP/rs-patch-test/theme"
+          python3 "$GITHUB_WORKSPACE/tools/make-patch.py" --from 70b8caf58f64e99b9bef138bb3b416be17215ec1 --to "$GITHUB_SHA" --min-version 2.2.15 --version 2.2.16 --out-dir "$RUNNER_TEMP/rs-patch-release"
           RS_PATCH_TEST_DIR="$RUNNER_TEMP/rs-patch-test" RS_PATCH_RELEASE_DIR="$RUNNER_TEMP/rs-patch-release" wp eval-file "$GITHUB_WORKSPACE/tests/patch-release-integration.php"
           FIXTURE="$(wp eval-file "$GITHUB_WORKSPACE/tests/delivery-http-seed.php" | sed -n 's/^RSHTTP://p' | tail -1)"
           test -n "$FIXTURE"

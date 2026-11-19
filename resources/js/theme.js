@@ -683,6 +683,27 @@
     const back = $('[data-rs-checkout-back]', form);
     const next = $('[data-rs-checkout-next]', form);
     if (!address || !review || !back || !next) return;
+    // Only change visible price/wallet text nodes. Input values, attributes and plugin scripts stay intact.
+    const localizeCheckoutText = root => {
+      const convert = node => {
+        const parent = node.parentElement;
+        if (!parent || parent.closest('script, style, textarea, select, option')) return;
+        if (!parent.closest('.woocommerce-Price-amount, .amol-wallet-checkout-box')) return;
+        const localized = toFa(toEn(node.nodeValue));
+        if (localized !== node.nodeValue) node.nodeValue = localized;
+      };
+      if (root.nodeType === 3) { convert(root); return; }
+      const walker = root.ownerDocument?.createTreeWalker(root, 4); // SHOW_TEXT
+      if (!walker) return;
+      while (walker.nextNode()) convert(walker.currentNode);
+    };
+    localizeCheckoutText(form);
+    if (window.MutationObserver) {
+      new MutationObserver(records => records.forEach(record => {
+        if (record.type === 'characterData') localizeCheckoutText(record.target);
+        else record.addedNodes.forEach(node => localizeCheckoutText(node));
+      })).observe(form, { subtree: true, childList: true, characterData: true });
+    }
     const shippingExtra = $('[data-rs-shipping-extra]', form);
     const paymentExtra = $('[data-rs-payment-extra]', form);
     // Relocate the genuine WooCommerce order fields, not copies of their inputs.

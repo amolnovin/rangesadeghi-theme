@@ -113,6 +113,11 @@ foreach (['rs-native-checkout', 'data-rs-checkout-panel="address"', 'data-rs-che
     rs_assert(str_contains($html, $part), 'Missing checkout component: ' . $part);
 }
 rs_assert(strpos($html, 'data-rs-coupon-card') < strpos($html, 'data-rs-final-review'), 'Final review is not after coupon');
+rs_assert(str_contains(wc_price(1234), '۱,۲۳۴') || str_contains(wc_price(1234), '۱٬۲۳۴') || str_contains(wc_price(1234), '۱.۲۳۴'), 'Checkout amount must display Persian digits');
+preg_match_all('/name="rs_delivery_day" value="([0-9-]+)"/', $html, $deliveryDays);
+rs_assert(count($deliveryDays[1]) > 0, 'Delivery days missing');
+foreach ($deliveryDays[1] as $value) rs_assert((new DateTimeImmutable($value, wp_timezone()))->format('N') !== '5', 'Friday rendered as a scheduled delivery option');
+
 rs_assert(str_contains($html, 'name="terms"') && str_contains($html, 'name="terms-field"') && str_contains($html, 'data-rs-place-order'), 'Policy acceptance or nav submit missing');
 rs_assert(substr_count($html, 'id="terms"') === 1 && substr_count($html, 'id="place_order"') === 1, 'Duplicate checkout fields');
 rs_assert((bool) preg_match('/<select[^>]*id="rs-new-province"[^>]*>/', $html), 'New address state must be a WooCommerce select');
@@ -261,13 +266,13 @@ wc_clear_notices(); $provider->validateDeliveryPreference();
 rs_assert(wc_notice_count('error') > 0, 'Missing scheduled time accepted');
 wc_clear_notices(); $_POST['rs_delivery_day'] = '2020-01-01'; $_POST['rs_delivery_slot'] = 'Morning'; $provider->validateDeliveryPreference();
 rs_assert(wc_notice_count('error') > 0, 'Past scheduled day accepted');
-// Friday is rejected for pickup, but remains available for courier.
+// Friday is rejected for both scheduled methods, including crafted requests.
 rs_app('options')->update(['shop' => ['delivery_days_ahead' => 14]]);
 $testToday = new DateTimeImmutable('today', wp_timezone());
 $friday = $testToday->modify('+' . ((5 - (int) $testToday->format('N') + 7) % 7) . ' days');
 $_POST['rs_delivery_day'] = $friday->format('Y-m-d'); $_POST['rs_delivery_slot'] = 'Morning';
 wc_clear_notices(); $provider->validateDeliveryPreference(); rs_assert(wc_notice_count('error') > 0, 'Friday pickup accepted');
-$_POST['shipping_method'] = ['rs_store_courier']; wc_clear_notices(); $provider->validateDeliveryPreference(); rs_assert(wc_notice_count('error') === 0, 'Friday courier should remain available');
+$_POST['shipping_method'] = ['rs_store_courier']; wc_clear_notices(); $provider->validateDeliveryPreference(); rs_assert(wc_notice_count('error') > 0, 'Friday courier accepted');
 $_POST['shipping_method'] = ['rs_store_pickup']; rs_app('options')->update(['shop' => ['delivery_days_ahead' => 6]]);
 $validDay = $testToday->modify('+2 days'); if ($validDay->format('N') === '5') $validDay = $validDay->modify('+1 day');
 wc_clear_notices(); $_POST['rs_delivery_day'] = $validDay->format('Y-m-d'); $_POST['rs_delivery_slot'] = 'Morning'; $_POST['rs_official_invoice'] = '1';

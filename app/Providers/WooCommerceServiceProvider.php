@@ -51,6 +51,8 @@ final class WooCommerceServiceProvider extends ServiceProvider
 
         // Keep the sidebar in sync with WooCommerce's checkout AJAX updates.
         add_filter('woocommerce_update_order_review_fragments', [$this, 'checkoutSummaryFragment']);
+        // Localize rendered checkout amounts only; never alter numeric values used by WooCommerce.
+        add_filter('formatted_woocommerce_price', [$this, 'formatCheckoutPriceDigits'], 100);
 
         // Shipping rates and free-shipping eligibility are controlled by WooCommerce shipping zones.
 
@@ -83,6 +85,12 @@ final class WooCommerceServiceProvider extends ServiceProvider
         foreach ($authAjax as $action => $handler) {
             add_action("wp_ajax_{$action}", $handler);
         }
+    }
+
+    public function formatCheckoutPriceDigits(string $price): string
+    {
+        $ajax = isset($_GET['wc-ajax']) && is_scalar($_GET['wc-ajax']) ? sanitize_key(wp_unslash((string) $_GET['wc-ajax'])) : '';
+        return (is_checkout() || $ajax === 'update_order_review') ? Persian::toFa($price) : $price;
     }
 
     public function checkoutOptionalPostcode(array $fields): array
@@ -360,13 +368,12 @@ final class WooCommerceServiceProvider extends ServiceProvider
         $days = max(1, min(30, (int) rs_option('shop.delivery_days_ahead', 6)));
         $date = \DateTimeImmutable::createFromFormat('!Y-m-d', $day, wp_timezone());
         $valid = $date && $date->format('Y-m-d') === $day && $date >= $today && in_array($slot, $slots, true);
-        if ($valid && in_array('rs_store_courier', $methods, true) && $date >= $today->modify('+' . $days . ' days')) $valid = false;
-        if ($valid && in_array('rs_store_pickup', $methods, true)) {
+        if ($valid) {
             $cursor = $today; $openDays = 0;
             while ($openDays < $days) { if ($cursor->format('N') !== '5') $openDays++; $cursor = $cursor->modify('+1 day'); }
             if ($date->format('N') === '5' || $date >= $cursor) $valid = false;
         }
-        if (!$valid) wc_add_notice('لطفاً روز و بازه معتبر تحویل را انتخاب کنید؛ تحویل حضوری جمعه‌ها انجام نمی‌شود.', 'error');
+        if (!$valid) wc_add_notice('لطفاً روز و بازه معتبر تحویل را انتخاب کنید؛ پیک فروشگاه و تحویل حضوری جمعه‌ها انجام نمی‌شوند.', 'error');
     }
 
     public function validateCheckoutRecipient(): void
